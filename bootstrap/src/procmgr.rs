@@ -922,12 +922,17 @@ impl<'a> ProcScheme<'a> {
                 buf[..len].copy_from_slice(&src_buf[..len]);
                 Ok(len)
             }
-            Handle::Init
-            | Handle::Thread(_)
-            | Handle::ProcCredsCapability
-            | Handle::SchemeRoot
-            | Handle::ProcObj(_)
-            | Handle::PgrpObj(_) => Err(Error::new(EBADF)),
+            Handle::ProcObj(pid) | Handle::PgrpObj(pid) => {
+                let dst_buf = buf
+                    .get_mut(..size_of::<usize>())
+                    .and_then(|b| <&mut [u8; size_of::<usize>()]>::try_from(b).ok())
+                    .ok_or(Error::new(EBADF))?;
+                *dst_buf = (pid.0).to_ne_bytes();
+                Ok(dst_buf.len())
+            }
+            Handle::Init | Handle::Thread(_) | Handle::ProcCredsCapability | Handle::SchemeRoot => {
+                Err(Error::new(EBADF))
+            }
         }
     }
     fn on_dup(&mut self, old_id: usize, buf: &[u8]) -> Result<OpenResult> {
