@@ -852,42 +852,102 @@ impl<'a> ProcScheme<'a> {
         ctx: &CallerCtx,
     ) -> Result<OpenResult> {
         match self.handles[fd] {
-            Handle::SchemeRoot => {}
-            _ => return Err(Error::new(EACCES)),
-        };
-        let path = path.trim_start_matches('/');
-        Ok(match path {
-            "init" => {
-                if core::mem::replace(&mut self.init_claimed, true) {
-                    return Err(Error::new(EEXIST));
-                }
-                OpenResult::ThisScheme {
-                    number: self.handles.insert(Handle::Init),
-                    flags: NewFdFlags::empty(),
+            Handle::SchemeRoot => {
+                let path = path.trim_start_matches('/');
+                match path {
+                    "init" => {
+                        if core::mem::replace(&mut self.init_claimed, true) {
+                            return Err(Error::new(EEXIST));
+                        }
+                        Ok(OpenResult::ThisScheme {
+                            number: self.handles.insert(Handle::Init),
+                            flags: NewFdFlags::empty(),
+                        })
+                    }
+                    "ps" => {
+                        let data = self.ps_data(ctx)?;
+                        Ok(OpenResult::ThisScheme {
+                            number: self.handles.insert(Handle::Ps(data)),
+                            flags: NewFdFlags::POSITIONED,
+                        })
+                    }
+                    "proc-creds-capability" => {
+                        if ctx.uid != 0 {
+                            return Err(Error::new(EACCES));
+                        }
+                        if flags & O_ACCMODE != O_RDONLY {
+                            return Err(Error::new(EINVAL));
+                        }
+                        Ok(OpenResult::ThisScheme {
+                            number: self.handles.insert(Handle::ProcCredsCapability),
+                            flags: NewFdFlags::empty(),
+                        })
+                    }
+                    _ => Err(Error::new(ENOENT)),
                 }
             }
-            "ps" => {
-                let data = self.ps_data(ctx)?;
-                OpenResult::ThisScheme {
-                    number: self.handles.insert(Handle::Ps(data)),
-                    flags: NewFdFlags::POSITIONED,
-                }
-            }
-            "proc-creds-capability" => {
-                if ctx.uid != 0 {
+            Handle::Proc(pid) => {
+                // The caller should be the process that wants to create a new handle
+                if ProcessId(ctx.pid) != pid {
                     return Err(Error::new(EACCES));
                 }
-                if flags & O_ACCMODE != O_RDONLY {
+                // The process needs to exist
+                let Some(caller_proc_rc) = self.processes.get(&pid) else {
                     return Err(Error::new(EINVAL));
+                };
+                let caller_proc = caller_proc_rc.borrow();
+                // Only a session leader should be able to create a new handle
+                if caller_proc.sid != caller_proc.pid {
+                    return Err(Error::new(EPERM));
                 }
-                OpenResult::ThisScheme {
-                    number: self.handles.insert(Handle::ProcCredsCapability),
-                    flags: NewFdFlags::empty(),
+                if let Some(rest) = path.strip_prefix("child/")
+                    && let Some(proc_no) = rest.strip_suffix("/proc-obj")
+                {
+                    // Needs to parse into a number and target process needs to exist
+                    if let Ok(number) = proc_no.parse::<usize>()
+                        && let Some(proc_rc) = self.processes.get(&ProcessId(number))
+                    {
+                        let proc = proc_rc.borrow();
+                        // Target process needs to be in the same session
+                        if caller_proc.sid != proc.sid {
+                            return Err(Error::new(EPERM));
+                        }
+                        Ok(OpenResult::ThisScheme {
+                            number: self.handles.insert(Handle::ProcObj(ProcessId(number))),
+                            flags: NewFdFlags::empty(),
+                        })
+                    } else {
+                        Err(Error::new(EINVAL))
+                    }
+                } else if let Some(pgrp_no) = path.strip_prefix("pgrp/") {
+                    // Needs to parse into a number and target process group needs to exist
+                    if let Ok(number) = pgrp_no.parse::<usize>()
+                        && let Some(pgrp_rc) = self.groups.get(&ProcessId(number))
+                    {
+                        let pgrp = pgrp_rc.borrow();
+                        let first = &pgrp
+                            .processes
+                            .first()
+                            .expect("not empty")
+                            .upgrade()
+                            .expect("exists");
+                        // Target process group needs to be in the same session
+                        if caller_proc.sid != first.borrow().sid {
+                            return Err(Error::new(EPERM));
+                        }
+                        Ok(OpenResult::ThisScheme {
+                            number: self.handles.insert(Handle::PgrpObj(ProcessId(number))),
+                            flags: NewFdFlags::empty(),
+                        })
+                    } else {
+                        Err(Error::new(EINVAL))
+                    }
+                } else {
+                    Err(Error::new(ENOENT))
                 }
             }
-
-            _ => return Err(Error::new(ENOENT)),
-        })
+            _ => Err(Error::new(EACCES)),
+        }
     }
     fn read_process_metadata(&self, pid: ProcessId, buf: &mut [u8]) -> Result<usize> {
         let proc_rc = self.processes.get(&pid).ok_or(Error::new(ESRCH))?;
