@@ -12,27 +12,23 @@ pub struct VirtioNet {
 
     /// Reciever Queue.
     rx: Arc<Queue>,
-    rx_buffers: Vec<Dma<[u8]>>,
 
     /// Transmiter Queue.
     tx: Arc<Queue>,
-
-    recv_head: u16,
 }
 
 impl VirtioNet {
     pub fn new(mac_address: [u8; 6], rx: Arc<Queue>, tx: Arc<Queue>) -> Self {
         // Populate all of the `rx_queue` with buffers to maximize performence.
-        let mut rx_buffers = vec![];
-        for i in 0..(rx.descriptor_len() as usize) {
-            rx_buffers.push(unsafe {
+        for _ in 0..rx.descriptor_len() {
+            let buffer = unsafe {
                 Dma::<[u8]>::zeroed_slice(MAX_BUFFER_LEN)
                     .unwrap()
                     .assume_init()
-            });
+            };
 
             let chain = ChainBuilder::new()
-                .chain(Buffer::new_unsized(&rx_buffers[i]).flags(DescriptorFlags::WRITE_ONLY))
+                .chain(Buffer::new(buffer).flags(DescriptorFlags::WRITE_ONLY))
                 .build();
 
             rx.post(chain);
@@ -40,12 +36,8 @@ impl VirtioNet {
 
         Self {
             mac_address,
-
             rx,
-            rx_buffers,
             tx,
-
-            recv_head: 0,
         }
     }
 
@@ -53,20 +45,16 @@ impl VirtioNet {
     fn try_recv(&mut self, target: &mut [u8]) -> usize {
         let header_size = size_of::<VirtHeader>();
 
-        if self.recv_head == self.rx.used.head_index() {
+        let Some(used) = self.rx.pop_completed() else {
             // The read would block.
             return 0;
-        }
+        };
 
-        let idx = self.rx.used.head_index() as usize;
-        let element = self.rx.used.get_element_at(idx - 1);
-
-        let descriptor_idx = element.table_index.get();
-        let payload_size = element.written.get() as usize - header_size;
+        let payload_size = used.written as usize - header_size;
 
         // XXX: The header and packet are added as one output descriptor to the transmit queue,
         //      and the device is notified of the new entry (see 5.1.5 Device Initialization).
-        let buffer = &self.rx_buffers[descriptor_idx as usize];
+        let buffer = used.buffers[0].owner::<Dma<[u8]>>().unwrap();
         // TODO: Check the header.
         let _header = unsafe { &*(buffer.as_ptr() as *const VirtHeader) };
         let packet = &buffer[header_size..(header_size + payload_size)];
@@ -74,7 +62,8 @@ impl VirtioNet {
         // Copy the packet into the buffer.
         target[..payload_size].copy_from_slice(&packet);
 
-        self.recv_head = self.rx.used.head_index();
+        // Hand the buffer back to the device for the next packet.
+        self.rx.post(used.buffers);
         payload_size
     }
 }
@@ -85,7 +74,7 @@ impl NetworkAdapter for VirtioNet {
     }
 
     fn available_for_read(&mut self) -> usize {
-        (self.rx.used.head_index() - self.recv_head).into()
+        self.rx.completed_len()
     }
 
     fn read_packet(&mut self, buf: &mut [u8]) -> syscall::Result<Option<usize>> {
@@ -106,8 +95,8 @@ impl NetworkAdapter for VirtioNet {
         payload.copy_from_slice(buffer);
 
         let chain = ChainBuilder::new()
-            .chain(Buffer::new(&header))
-            .chain(Buffer::new_unsized(&payload))
+            .chain(Buffer::new(header))
+            .chain(Buffer::new(payload))
             .build();
 
         futures::executor::block_on(self.tx.send(chain));

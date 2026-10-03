@@ -28,15 +28,18 @@ impl BlkExtension for Queue {
         let status = Dma::new(u8::MAX).unwrap();
 
         let chain = ChainBuilder::new()
-            .chain(Buffer::new(&req))
-            .chain(Buffer::new_unsized(&result).flags(DescriptorFlags::WRITE_ONLY))
-            .chain(Buffer::new(&status).flags(DescriptorFlags::WRITE_ONLY))
+            .chain(Buffer::new(req))
+            .chain(Buffer::new(result).flags(DescriptorFlags::WRITE_ONLY))
+            .chain(Buffer::new(status).flags(DescriptorFlags::WRITE_ONLY))
             .build();
 
-        // XXX: Subtract 1 because the of status byte.
-        let written = self.send(chain).await as usize - 1;
+        let (written, [_, result, status]) = self.send(chain).await.into_parts();
+        let status: Dma<u8> = status.into_inner();
         assert_eq!(*status, 0);
 
+        // XXX: Subtract 1 because the of status byte.
+        let written = written as usize - 1;
+        let result: Dma<[u8]> = result.into_inner();
         target[..written].copy_from_slice(&result);
         written
     }
@@ -59,12 +62,13 @@ impl BlkExtension for Queue {
         let status = Dma::new(u8::MAX).unwrap();
 
         let chain = ChainBuilder::new()
-            .chain(Buffer::new(&req))
-            .chain(Buffer::new_sized(&result, target.len()))
-            .chain(Buffer::new(&status).flags(DescriptorFlags::WRITE_ONLY))
+            .chain(Buffer::new(req))
+            .chain(Buffer::new_sized(result, target.len()))
+            .chain(Buffer::new(status).flags(DescriptorFlags::WRITE_ONLY))
             .build();
 
-        self.send(chain).await as usize;
+        let (_, [_, _, status]) = self.send(chain).await.into_parts();
+        let status: Dma<u8> = status.into_inner();
         assert_eq!(*status, 0);
 
         target.len()
