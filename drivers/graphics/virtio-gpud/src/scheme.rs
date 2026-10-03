@@ -168,21 +168,6 @@ impl<'a> VirtGpuAdapter<'a> {
         Ok(header.into_inner())
     }
 
-    async fn send_request_fenced<T: Send + 'static>(
-        &self,
-        request: Dma<T>,
-    ) -> Result<Dma<ControlHeader>, Error> {
-        let mut header = Dma::new(ControlHeader::default())?;
-        header.flags |= VIRTIO_GPU_FLAG_FENCE;
-        let command = ChainBuilder::new()
-            .chain(Buffer::new(request))
-            .chain(Buffer::new(header).flags(DescriptorFlags::WRITE_ONLY))
-            .build();
-
-        let (_, [_, header]) = self.control_queue.send(command).await.into_parts();
-        Ok(header.into_inner())
-    }
-
     async fn send_request_cursor<T: Send + 'static>(&self, request: Dma<T>) -> Result<(), Error> {
         let command = ChainBuilder::new().chain(Buffer::new(request)).build();
         self.cursor_queue.send(command).await;
@@ -319,7 +304,7 @@ impl<'a> VirtGpuAdapter<'a> {
         hot_y: i32,
     ) {
         //Transfering cursor resource to host
-        let transfer_request = Dma::new(XferToHost2d::new(
+        let mut transfer = XferToHost2d::new(
             cursor.id,
             GpuRect {
                 x: 0,
@@ -328,9 +313,12 @@ impl<'a> VirtGpuAdapter<'a> {
                 height: 64,
             },
             0,
-        ))
-        .unwrap();
-        let header = self.send_request_fenced(transfer_request).await.unwrap();
+        );
+        transfer.header.flags |= VIRTIO_GPU_FLAG_FENCE;
+        let header = self
+            .send_request(Dma::new(transfer).unwrap())
+            .await
+            .unwrap();
         assert_eq!(header.ty, CommandTy::RespOkNodata);
 
         //Update the cursor position
