@@ -16,8 +16,7 @@ fn nonblock(file: &File) -> io::Result<()> {
     .map_err(from_syscall_error)
 }
 fn dup(file: &File, buf: &str) -> io::Result<File> {
-    let stream =
-        syscall::dup(file.as_raw_fd() as usize, buf.as_bytes()).map_err(from_syscall_error)?;
+    let stream = libredox::call::dup(file.as_raw_fd() as usize, buf.as_bytes())?;
     Ok(unsafe { File::from_raw_fd(stream as RawFd) })
 }
 

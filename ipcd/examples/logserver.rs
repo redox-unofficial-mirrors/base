@@ -37,8 +37,8 @@ fn main() -> io::Result<()> {
             println!("Listener recevied flags: {:?}", event.flags);
             if event.flags & syscall::EVENT_WRITE == syscall::EVENT_WRITE {
                 loop {
-                    let stream = match syscall::dup(server.as_raw_fd() as usize, b"listen")
-                        .map_err(from_syscall_error)
+                    let stream = match libredox::call::dup(server.as_raw_fd() as usize, b"listen")
+                        .map_err(io::Error::from)
                     {
                         Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => break,
                         stream => stream?,
