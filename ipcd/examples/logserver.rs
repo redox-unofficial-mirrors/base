@@ -5,6 +5,9 @@ use std::io::{self};
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::str;
 
+fn from_libredox_error(error: libredox::error::Error) -> io::Error {
+    io::Error::from_raw_os_error(error.errno())
+}
 fn from_syscall_error(error: syscall::Error) -> io::Error {
     io::Error::from_raw_os_error(error.errno as i32)
 }
@@ -37,8 +40,8 @@ fn main() -> io::Result<()> {
             println!("Listener recevied flags: {:?}", event.flags);
             if event.flags & syscall::EVENT_WRITE == syscall::EVENT_WRITE {
                 loop {
-                    let stream = match syscall::dup(server.as_raw_fd() as usize, b"listen")
-                        .map_err(from_syscall_error)
+                    let stream = match libredox::call::dup(server.as_raw_fd() as usize, b"listen")
+                        .map_err(from_libredox_error)
                     {
                         Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => break,
                         stream => stream?,

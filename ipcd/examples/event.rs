@@ -3,6 +3,9 @@ use std::io::prelude::*;
 use std::io::{self};
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 
+fn from_libredox_error(error: libredox::error::Error) -> io::Error {
+    io::Error::from_raw_os_error(error.errno())
+}
 fn from_syscall_error(error: syscall::Error) -> io::Error {
     io::Error::from_raw_os_error(error.errno as i32)
 }
@@ -16,8 +19,8 @@ fn nonblock(file: &File) -> io::Result<()> {
     .map_err(from_syscall_error)
 }
 fn dup(file: &File, buf: &str) -> io::Result<File> {
-    let stream =
-        syscall::dup(file.as_raw_fd() as usize, buf.as_bytes()).map_err(from_syscall_error)?;
+    let stream = libredox::call::dup(file.as_raw_fd() as usize, buf.as_bytes())
+        .map_err(from_libredox_error)?;
     Ok(unsafe { File::from_raw_fd(stream as RawFd) })
 }
 
