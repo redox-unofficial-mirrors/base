@@ -104,6 +104,10 @@ pub struct Dma<T: ?Sized> {
     virt: *mut T,
 }
 
+// SAFETY: Dma owns its mapping exclusively, like Box<T>, so it is as Send/Sync as T.
+unsafe impl<T: ?Sized + Send> Send for Dma<T> {}
+unsafe impl<T: ?Sized + Sync> Sync for Dma<T> {}
+
 impl<T> Dma<T> {
     /// [Dma] constructor that allocates and initializes a region of DMA memory with the page-aligned
     /// size and initial value of some T

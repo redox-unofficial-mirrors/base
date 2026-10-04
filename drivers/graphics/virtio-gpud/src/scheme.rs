@@ -154,31 +154,22 @@ impl<'a> VirtGpuAdapter<'a> {
         Ok(())
     }
 
-    async fn send_request<T>(&self, request: Dma<T>) -> Result<Dma<ControlHeader>, Error> {
+    async fn send_request<T: Send + 'static>(
+        &self,
+        request: Dma<T>,
+    ) -> Result<Dma<ControlHeader>, Error> {
         let header = Dma::new(ControlHeader::default())?;
         let command = ChainBuilder::new()
-            .chain(Buffer::new(&request))
-            .chain(Buffer::new(&header).flags(DescriptorFlags::WRITE_ONLY))
+            .chain(Buffer::new(request))
+            .chain(Buffer::new(header).flags(DescriptorFlags::WRITE_ONLY))
             .build();
 
-        self.control_queue.send(command).await;
-        Ok(header)
+        let (_, [_, header]) = self.control_queue.send(command).await.into_parts();
+        Ok(header.into_inner())
     }
 
-    async fn send_request_fenced<T>(&self, request: Dma<T>) -> Result<Dma<ControlHeader>, Error> {
-        let mut header = Dma::new(ControlHeader::default())?;
-        header.flags |= VIRTIO_GPU_FLAG_FENCE;
-        let command = ChainBuilder::new()
-            .chain(Buffer::new(&request))
-            .chain(Buffer::new(&header).flags(DescriptorFlags::WRITE_ONLY))
-            .build();
-
-        self.control_queue.send(command).await;
-        Ok(header)
-    }
-
-    async fn send_request_cursor<T>(&self, request: Dma<T>) -> Result<(), Error> {
-        let command = ChainBuilder::new().chain(Buffer::new(&request)).build();
+    async fn send_request_cursor<T: Send + 'static>(&self, request: Dma<T>) -> Result<(), Error> {
+        let command = ChainBuilder::new().chain(Buffer::new(request)).build();
         self.cursor_queue.send(command).await;
         Ok(())
     }
@@ -189,8 +180,8 @@ impl<'a> VirtGpuAdapter<'a> {
 
             let header = Dma::new(ControlHeader::default()).unwrap();
             let command = ChainBuilder::new()
-                .chain(Buffer::new(&request))
-                .chain(Buffer::new(&header).flags(DescriptorFlags::WRITE_ONLY))
+                .chain(Buffer::new(request))
+                .chain(Buffer::new(header).flags(DescriptorFlags::WRITE_ONLY))
                 .build();
 
             self.control_queue.send(command).await;
@@ -202,11 +193,12 @@ impl<'a> VirtGpuAdapter<'a> {
 
         let response = Dma::new(GetDisplayInfo::default())?;
         let command = ChainBuilder::new()
-            .chain(Buffer::new(&header))
-            .chain(Buffer::new(&response).flags(DescriptorFlags::WRITE_ONLY))
+            .chain(Buffer::new(header))
+            .chain(Buffer::new(response).flags(DescriptorFlags::WRITE_ONLY))
             .build();
 
-        self.control_queue.send(command).await;
+        let (_, [_, response]) = self.control_queue.send(command).await.into_parts();
+        let response: Dma<GetDisplayInfo> = response.into_inner();
         assert!(response.header.ty == CommandTy::RespOkDisplayInfo);
 
         Ok(response)
@@ -217,11 +209,12 @@ impl<'a> VirtGpuAdapter<'a> {
 
         let response = Dma::new(GetEdidResp::new())?;
         let command = ChainBuilder::new()
-            .chain(Buffer::new(&header))
-            .chain(Buffer::new(&response).flags(DescriptorFlags::WRITE_ONLY))
+            .chain(Buffer::new(header))
+            .chain(Buffer::new(response).flags(DescriptorFlags::WRITE_ONLY))
             .build();
 
-        self.control_queue.send(command).await;
+        let (_, [_, response]) = self.control_queue.send(command).await.into_parts();
+        let response: Dma<GetEdidResp> = response.into_inner();
         assert!(response.header.ty == CommandTy::RespOkEdid);
 
         Ok(response)
@@ -258,12 +251,13 @@ impl<'a> VirtGpuAdapter<'a> {
         let attach_request = Dma::new(AttachBacking::new(res_id, mem_entries.len() as u32))?;
         let header = Dma::new(ControlHeader::default())?;
         let command = ChainBuilder::new()
-            .chain(Buffer::new(&attach_request))
-            .chain(Buffer::new_unsized(&mem_entries))
-            .chain(Buffer::new(&header).flags(DescriptorFlags::WRITE_ONLY))
+            .chain(Buffer::new(attach_request))
+            .chain(Buffer::new(mem_entries))
+            .chain(Buffer::new(header).flags(DescriptorFlags::WRITE_ONLY))
             .build();
 
-        self.control_queue.send(command).await;
+        let (_, [_, _, header]) = self.control_queue.send(command).await.into_parts();
+        let header: Dma<ControlHeader> = header.into_inner();
         assert_eq!(header.ty, CommandTy::RespOkNodata);
         Ok(())
     }
@@ -310,7 +304,7 @@ impl<'a> VirtGpuAdapter<'a> {
         hot_y: i32,
     ) {
         //Transfering cursor resource to host
-        let transfer_request = Dma::new(XferToHost2d::new(
+        let mut transfer = XferToHost2d::new(
             cursor.id,
             GpuRect {
                 x: 0,
@@ -319,9 +313,12 @@ impl<'a> VirtGpuAdapter<'a> {
                 height: 64,
             },
             0,
-        ))
-        .unwrap();
-        let header = self.send_request_fenced(transfer_request).await.unwrap();
+        );
+        transfer.header.flags |= VIRTIO_GPU_FLAG_FENCE;
+        let header = self
+            .send_request(Dma::new(transfer).unwrap())
+            .await
+            .unwrap();
         assert_eq!(header.ty, CommandTy::RespOkNodata);
 
         //Update the cursor position

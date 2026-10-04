@@ -1,5 +1,5 @@
 use core::sync::atomic::{AtomicU16, Ordering};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::future::Future;
 use std::io::{Read, Write};
 use std::os::fd::AsRawFd;
@@ -60,18 +60,52 @@ struct IrqGroup {
     queues: Mutex<Vec<Arc<Queue>>>,
 }
 
-pub trait NotifyBell {
+pub trait NotifyBell: Send + Sync {
     fn ring(&self, queue_index: u16);
 }
 
+/// A chain the device has used, and how many bytes it wrote.
+pub struct Retired {
+    pub buffers: Vec<Buffer>,
+    pub written: u32,
+}
+
+impl Retired {
+    /// The byte count and the buffers, in chain order.
+    ///
+    /// # Panics
+    /// The chain does not have exactly `N` buffers.
+    pub fn into_parts<const N: usize>(self) -> (u32, [Buffer; N]) {
+        let buffers = self
+            .buffers
+            .try_into()
+            .unwrap_or_else(|_| panic!("virtio-core: unexpected chain length"));
+        (self.written, buffers)
+    }
+}
+
+/// What a waiting future and the queue share for one request.
+#[derive(Default)]
 struct Completion {
     waker: Option<Waker>,
-    written: Option<u32>,
+    done: Option<Retired>,
+}
+
+type Ticket = Arc<Mutex<Completion>>;
+
+/// A chain the device has not used yet. Keyed by its first descriptor, and removed
+/// as soon as the device retires it, so the descriptor can be reused right after.
+struct InFlight {
+    // held until the device has used the chain
+    buffers: Vec<Buffer>,
+    // `None` goes to `Queue::pop_completed` instead of waking a future
+    ticket: Option<Ticket>,
 }
 
 enum PendingState {
     PendingSubmit(Vec<Buffer>),
-    Submitted(u32),
+    Submitted(Ticket),
+    Done,
 }
 
 pub struct PendingRequest {
@@ -79,100 +113,74 @@ pub struct PendingRequest {
     state: PendingState,
 }
 
-impl PendingRequest {
-    fn try_submit_waiting(&self) -> Option<u32> {
-        match &self.state {
-            PendingState::PendingSubmit(chain) => self.queue.try_submit(chain, true),
-            PendingState::Submitted(_) => None,
-        }
-    }
-}
-
 impl Future for PendingRequest {
-    type Output = u32;
+    type Output = Retired;
 
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
 
-        let first_descriptor = match this.state {
-            PendingState::Submitted(first) => first,
-            PendingState::PendingSubmit(_) => {
-                this.queue.drain_used_ring();
-                if let Some(first) = this.try_submit_waiting() {
-                    this.state = PendingState::Submitted(first);
-                    first
-                } else {
-                    this.queue
-                        .submit_waiters
-                        .lock()
-                        .unwrap()
-                        .push(cx.waker().clone());
-                    this.queue.drain_used_ring();
-                    if let Some(first) = this.try_submit_waiting() {
-                        this.state = PendingState::Submitted(first);
-                        first
-                    } else {
+        this.queue.drain_used_ring();
+
+        let ticket = match core::mem::replace(&mut this.state, PendingState::Done) {
+            PendingState::Done => panic!("virtio-core: request polled after completion"),
+            PendingState::Submitted(ticket) => ticket,
+            PendingState::PendingSubmit(chain) => {
+                match this.queue.submit_waiting(chain, cx.waker()) {
+                    Ok(ticket) => ticket,
+                    Err(chain) => {
+                        this.state = PendingState::PendingSubmit(chain);
                         return Poll::Pending;
                     }
                 }
             }
         };
 
-        this.queue.drain_used_ring();
-
         // Race-safety note:
-        // - IRQ fires before `poll` acquires the completions lock:
-        //    `poll` blocks until the IRQ thread completes and releases the lock.
-        //    Once acquired, `poll` observes the updated state and returns `Poll::Ready` (no waker needed).
+        // - IRQ fires before `poll` acquires the ticket lock:
+        //    `poll` observes `done` and returns `Poll::Ready` (no waker needed).
         // - IRQ fires after `poll` acquires the lock:
         //    `poll` observes the incomplete state, registers the waker, releases the lock,
-        //    and returns `Poll::Pending`. The IRQ thread then acquires the lock and invokes the waker.
+        //    and returns `Poll::Pending`. The IRQ thread then takes the lock and invokes the waker.
         //
         // This guarantees that lost completions/wakeups cannot occur.
-        let mut completions = this.queue.completions.lock().unwrap();
-        let slot = completions
-            .get_mut(&first_descriptor)
-            .expect("virtio-core: missing completion slot");
-
-        if let Some(written) = slot.written {
-            completions.remove(&first_descriptor);
-            return Poll::Ready(written);
+        let retired = {
+            let mut completion = ticket.lock().unwrap();
+            if let Some(retired) = completion.done.take() {
+                Some(retired)
+            } else {
+                completion.waker = Some(cx.waker().clone());
+                None
+            }
+        };
+        if let Some(retired) = retired {
+            return Poll::Ready(retired);
         }
 
-        slot.waker = Some(cx.waker().clone());
+        this.state = PendingState::Submitted(ticket);
         Poll::Pending
     }
 }
 
 impl Drop for PendingRequest {
     fn drop(&mut self) {
-        let PendingState::Submitted(first_descriptor) = &self.state else {
+        let PendingState::Submitted(ticket) = &self.state else {
             return;
         };
-        let first_descriptor = *first_descriptor;
-        // clears the waker only, while the completion slot stays so drain
-        // can still recycle the chain
-        if let Some(slot) = self
-            .queue
-            .completions
-            .lock()
-            .unwrap()
-            .get_mut(&first_descriptor)
-        {
-            slot.waker = None;
-        }
+        // only the waker goes, the queue keeps the chain until the device is done with it
+        ticket.lock().unwrap().waker = None;
     }
 }
 
 pub struct Queue {
-    pub queue_index: u16,
-    pub used: Used,
-    pub descriptor: Dma<[Descriptor]>,
-    pub available: Available,
+    queue_index: u16,
+    used: Used,
+    descriptor: Dma<[Descriptor]>,
+    available: Available,
     vector: u16,
 
     consumed_index: AtomicU16,
-    completions: Mutex<HashMap<u32, Completion>>,
+    completions: Mutex<HashMap<u32, InFlight>>,
+    ready: Mutex<VecDeque<Retired>>,
     drain_lock: Mutex<()>,
     submit_lock: Mutex<()>,
     submit_waiters: Mutex<Vec<Waker>>,
@@ -207,6 +215,7 @@ impl Queue {
             descriptor_stack,
             consumed_index: AtomicU16::new(0),
             completions: Mutex::new(HashMap::new()),
+            ready: Mutex::new(VecDeque::new()),
             drain_lock: Mutex::new(()),
             submit_lock: Mutex::new(()),
             submit_waiters: Mutex::new(Vec::new()),
@@ -217,7 +226,9 @@ impl Queue {
 
     fn reinit(&self) {
         self.consumed_index.store(0, Ordering::SeqCst);
+        // this frees the buffers held by these, so the caller must have reset the device first
         self.completions.lock().unwrap().clear();
+        self.ready.lock().unwrap().clear();
         self.submit_waiters.lock().unwrap().clear();
         self.available.set_head_idx(0);
 
@@ -255,17 +266,18 @@ impl Queue {
         }
     }
 
-    fn try_submit(&self, chain: &[Buffer], track_completion: bool) -> Option<u32> {
+    /// Places the chain on the ring. The chain comes back if the virtqueue has no free descriptors.
+    fn try_submit(&self, chain: Vec<Buffer>, ticket: Option<Ticket>) -> Result<u32, Vec<Buffer>> {
         let first_descriptor = {
             let _guard = self.submit_lock.lock().unwrap();
 
             let mut allocated = Vec::with_capacity(chain.len());
-            for buffer in chain {
+            for buffer in &chain {
                 let Some(descriptor) = self.descriptor_stack.pop() else {
                     for desc in allocated {
                         self.descriptor_stack.push(desc);
                     }
-                    return None;
+                    return Err(chain);
                 };
                 allocated.push(descriptor);
 
@@ -282,15 +294,13 @@ impl Queue {
             let last_descriptor = allocated[allocated.len() - 1];
             self.descriptor[last_descriptor as usize].set_next(None);
 
-            if track_completion {
-                self.completions.lock().unwrap().insert(
-                    first_descriptor,
-                    Completion {
-                        waker: None,
-                        written: None,
-                    },
-                );
-            }
+            self.completions.lock().unwrap().insert(
+                first_descriptor,
+                InFlight {
+                    buffers: chain,
+                    ticket,
+                },
+            );
 
             let avail_idx = self.available.head_index();
             self.available
@@ -302,7 +312,24 @@ impl Queue {
         };
 
         self.drain_used_ring();
-        Some(first_descriptor)
+        Ok(first_descriptor)
+    }
+
+    /// Submits `chain`, or gives it back if the virtqueue stays full.
+    /// The waker is registered before the retry, so a recycle in between wakes us.
+    fn submit_waiting(&self, chain: Vec<Buffer>, waker: &Waker) -> Result<Ticket, Vec<Buffer>> {
+        let ticket = Ticket::default();
+        match self.try_submit(chain, Some(ticket.clone())) {
+            Ok(_) => Ok(ticket),
+            Err(chain) => {
+                self.submit_waiters.lock().unwrap().push(waker.clone());
+                self.drain_used_ring();
+                match self.try_submit(chain, Some(ticket.clone())) {
+                    Ok(_) => Ok(ticket),
+                    Err(chain) => Err(chain),
+                }
+            }
+        }
     }
 
     /// Harvest every newly-used descriptor chain. Individual futures must not
@@ -323,14 +350,22 @@ impl Queue {
             let table_index = element.table_index.get();
             let written = element.written.get();
 
-            {
-                let mut completions = self.completions.lock().unwrap();
-                if let Some(slot) = completions.get_mut(&table_index) {
-                    self.recycle_chain(table_index);
-                    recycled = true;
-                    slot.written = Some(written);
-                    if let Some(waker) = slot.waker.take() {
-                        to_wake.push(waker);
+            let in_flight = self.completions.lock().unwrap().remove(&table_index);
+            if let Some(InFlight { buffers, ticket }) = in_flight {
+                self.recycle_chain(table_index);
+                recycled = true;
+                match ticket {
+                    None => self
+                        .ready
+                        .lock()
+                        .unwrap()
+                        .push_back(Retired { buffers, written }),
+                    Some(ticket) => {
+                        let mut completion = ticket.lock().unwrap();
+                        completion.done = Some(Retired { buffers, written });
+                        if let Some(waker) = completion.waker.take() {
+                            to_wake.push(waker);
+                        }
                     }
                 }
             }
@@ -340,27 +375,35 @@ impl Queue {
         }
 
         drop(guard);
-        for waker in to_wake {
-            waker.wake();
-        }
+        to_wake.into_iter().for_each(Waker::wake);
         if recycled {
-            let waiters: Vec<Waker> = self.submit_waiters.lock().unwrap().drain(..).collect();
-            for waker in waiters {
-                waker.wake();
-            }
+            let waiters = core::mem::take(&mut *self.submit_waiters.lock().unwrap());
+            waiters.into_iter().for_each(Waker::wake);
         }
     }
 
-    /// Submit a chain without tracking completion. Used when the caller reads
-    /// the used ring itself (virtio-net RX) and does not recycle via `send()`.
+    /// Submit a chain without waiting for it. Once the device has used it, the
+    /// chain comes back through [`Self::pop_completed`] (virtio-net RX).
     ///
     /// ## Panics
     /// Empty chain, chain longer than the virtqueue, or no free descriptors.
     /// The RX path is expected to post at most [`Self::descriptor_len`] buffers.
     pub fn post(&self, chain: Vec<Buffer>) -> u32 {
         self.check_chain(&chain);
-        self.try_submit(&chain, false)
-            .expect("virtio-core: virtqueue is out of descriptors")
+        self.try_submit(chain, None)
+            .unwrap_or_else(|_| panic!("virtio-core: virtqueue is out of descriptors"))
+    }
+
+    /// Takes the oldest chain the device has used from those submitted with [`Self::post`].
+    pub fn pop_completed(&self) -> Option<Retired> {
+        self.drain_used_ring();
+        self.ready.lock().unwrap().pop_front()
+    }
+
+    /// Returns how many used chains are waiting for [`Self::pop_completed`].
+    pub fn completed_len(&self) -> usize {
+        self.drain_used_ring();
+        self.ready.lock().unwrap().len()
     }
 
     /// Submit a chain and wait until the device has used it.
@@ -368,6 +411,9 @@ impl Queue {
     /// The chain is placed on the ring on first poll. If the virtqueue is
     /// temporarily out of descriptors, the future stays pending until drain
     /// recycles enough, then submits.
+    ///
+    /// The returned chain is the one that was submitted. The queue keeps it until
+    /// the device has used it, even if the returned future is dropped before that.
     ///
     /// ## Panics
     /// Empty chain, or chain longer than the virtqueue.
@@ -386,8 +432,7 @@ impl Queue {
     }
 }
 
-unsafe impl Sync for Queue {}
-unsafe impl Send for Queue {}
+static_assertions::assert_impl_all!(Queue: Send, Sync);
 
 pub struct Available {
     mem: Dma<[u8]>,
@@ -588,6 +633,9 @@ pub trait Transport: Sync + Send {
     /// Each time the device configuration changes this number will be updated.
     fn config_generation(&self) -> u32;
 
+    /// Returns the maximum number of virtqueues the device supports.
+    fn num_queues(&self) -> u16;
+
     /// Creates a virtqueue on `irq`'s vector and watches that vector.
     ///
     /// Prefer [`crate::Device::setup_queue`], which allocates `irq` from this
@@ -760,6 +808,10 @@ impl Transport for StandardTransport<'_> {
 
     fn config_generation(&self) -> u32 {
         u32::from(self.common.lock().unwrap().config_generation.get())
+    }
+
+    fn num_queues(&self) -> u16 {
+        self.common.lock().unwrap().num_queues.get()
     }
 
     fn setup_queue(&self, irq: InterruptVector) -> Result<Arc<Queue>, Error> {

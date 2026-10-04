@@ -21,8 +21,10 @@
 //! OASIS IPR Policy, must be followed) or as required to translate it into languages
 //! other than English.
 
+use std::any::Any;
 use std::sync::atomic::{AtomicU16, AtomicU32, AtomicU64, Ordering};
 
+use common::dma::Dma;
 use static_assertions::const_assert_eq;
 
 use crate::utils::{IncompleteArrayField, VolatileCell};
@@ -142,40 +144,87 @@ pub struct UsedRingExtra {
 }
 
 // ======== Utils ========
+
+/// A region of DMA memory a `Buffer` can own.
+///
+/// # Safety
+/// `physical()` is the address of `byte_len()` bytes of DMA memory that stay valid
+/// and in place until `self` is dropped.
+pub unsafe trait DmaRegion: Send + 'static {
+    fn physical(&self) -> usize;
+    fn byte_len(&self) -> usize;
+}
+
+unsafe impl<T: ?Sized + Send + 'static> DmaRegion for Dma<T> {
+    fn physical(&self) -> usize {
+        Dma::physical(self)
+    }
+
+    fn byte_len(&self) -> usize {
+        size_of_val(&**self)
+    }
+}
+
 pub struct Buffer {
     pub(crate) buffer: usize,
     pub(crate) size: usize,
     pub(crate) flags: DescriptorFlags,
+    // keeps the memory alive until the device is done with it
+    owner: Box<dyn Any + Send>,
 }
 
+static_assertions::assert_impl_all!(Buffer: Send);
+
 impl Buffer {
-    pub fn new<T>(val: &common::dma::Dma<T>) -> Self {
-        Self {
-            buffer: val.physical(),
-            size: size_of::<T>(),
-            flags: DescriptorFlags::empty(),
-        }
-    }
+    /// A buffer over the whole region.
+    pub fn new<R: DmaRegion>(region: R) -> Self {
+        let size = region.byte_len();
 
-    pub fn new_unsized<T>(val: &common::dma::Dma<[T]>) -> Self {
         Self {
-            buffer: val.physical(),
-            size: size_of::<T>() * val.len(),
-            flags: DescriptorFlags::empty(),
-        }
-    }
-
-    pub fn new_sized<T>(val: &common::dma::Dma<[T]>, size: usize) -> Self {
-        Self {
-            buffer: val.physical(),
+            buffer: region.physical(),
             size,
             flags: DescriptorFlags::empty(),
+            owner: Box::new(region),
+        }
+    }
+
+    /// A buffer over the first `size` bytes of the region.
+    ///
+    /// # Panics
+    /// `size` is larger than the region.
+    pub fn new_sized<R: DmaRegion>(region: R, size: usize) -> Self {
+        assert!(
+            size <= region.byte_len(),
+            "virtio-core: buffer size exceeds the DMA memory"
+        );
+
+        Self {
+            buffer: region.physical(),
+            size,
+            flags: DescriptorFlags::empty(),
+            owner: Box::new(region),
         }
     }
 
     pub fn flags(mut self, flags: DescriptorFlags) -> Self {
         self.flags = flags;
         self
+    }
+
+    /// The memory this buffer keeps alive, if it is a `T`.
+    pub fn owner<T: 'static>(&self) -> Option<&T> {
+        self.owner.downcast_ref()
+    }
+
+    /// Takes the memory back, once the device is done with it.
+    ///
+    /// # Panics
+    /// The buffer does not hold a `T`.
+    pub fn into_inner<T: 'static>(self) -> T {
+        *self
+            .owner
+            .downcast()
+            .expect("virtio-core: buffer does not hold a T")
     }
 }
 
