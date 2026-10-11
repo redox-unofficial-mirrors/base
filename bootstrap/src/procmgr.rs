@@ -30,10 +30,10 @@ use slab::Slab;
 use syscall::schemev2::NewFdFlags;
 use syscall::{
     CallFlags, ContextStatus, ContextVerb, CtxtStsBuf, EACCES, EAGAIN, EBADF, EBADFD, ECANCELED,
-    ECHILD, EEXIST, EINTR, EINVAL, ENOENT, ENOSYS, EOPNOTSUPP, EOWNERDEAD, EPERM, ERESTART, ESRCH,
-    EWOULDBLOCK, Error, Event, EventFlags, FobtainFdFlags, MapFlags, O_ACCMODE, O_CREAT, O_RDONLY,
-    PAGE_SIZE, ProcSchemeAttrs, Result, SenderInfo, SetSighandlerData, SigProcControl, Sigcontrol,
-    sig_bit,
+    ECHILD, EEXIST, EINTR, EINVAL, ENOENT, ENOSYS, ENOTTY, EOPNOTSUPP, EOWNERDEAD, EPERM, ERESTART,
+    ESRCH, EWOULDBLOCK, Error, Event, EventFlags, FobtainFdFlags, MapFlags, O_ACCMODE, O_CREAT,
+    O_RDONLY, PAGE_SIZE, ProcSchemeAttrs, Result, SenderInfo, SetSighandlerData, SigProcControl,
+    Sigcontrol, sig_bit,
 };
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -919,6 +919,7 @@ impl<'a> ProcScheme<'a> {
                     } else {
                         Err(Error::new(EINVAL))
                     }
+                // NOTE: creating PgrpObj via on_openat is intended for use by tcsetpgrp()
                 } else if let Some(pgrp_no) = path.strip_prefix("pgrp/") {
                     // Needs to parse into a number and target process group needs to exist
                     if let Ok(number) = pgrp_no.parse::<usize>()
@@ -934,6 +935,11 @@ impl<'a> ProcScheme<'a> {
                         // Target process group needs to be in the same session
                         if caller_proc.sid != first.borrow().sid {
                             return Err(Error::new(EPERM));
+                        }
+                        if let Some(session) = self.sessions.get(&caller_proc.sid)
+                            && session.controlling_term.is_none()
+                        {
+                            return Err(Error::new(ENOTTY));
                         }
                         Ok(OpenResult::ThisScheme {
                             number: self.handles.insert(Handle::PgrpObj(ProcessId(number))),
