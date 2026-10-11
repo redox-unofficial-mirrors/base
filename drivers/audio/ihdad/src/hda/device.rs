@@ -263,7 +263,7 @@ impl IntelHDA {
         if addr == (0, 0) {
             return Ok(node);
         }
-        temp = self.cmd.cmd12(addr, 0xF00, 0x04)?;
+        temp = self.cmd.cmd12(addr, 0xF00, 0x05)?;
 
         node.function_group_type = (temp & 0xff) as u8;
 
