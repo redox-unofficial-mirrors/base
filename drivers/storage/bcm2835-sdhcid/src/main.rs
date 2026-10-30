@@ -33,20 +33,28 @@ fn daemon(daemon: daemon::Daemon) -> ! {
         process::exit(0);
     }
 
-    let fdt = Fdt::new(&dtb_data).unwrap();
+    let fdt = Fdt::new_unaligned(&dtb_data).unwrap();
     println!("DTB model = {}", fdt.root().model());
     let with = ["brcm,bcm2835-sdhci"];
-    let compat_node = fdt.find_compatible(&with).unwrap();
-    let reg = compat_node.reg().unwrap().next().unwrap();
-    let reg_size = reg.size.unwrap();
-    let mut reg_addr = reg.starting_address as usize;
+    let compat_node = fdt.all_compatible(&with).next().unwrap();
+    let reg = compat_node
+        .reg()
+        .unwrap()
+        .iter::<usize, usize>()
+        .next()
+        .unwrap()
+        .unwrap();
+    let reg_size = reg.len;
+    let mut reg_addr = reg.address;
     println!(
         "DeviceMemory start = 0x{:08x}, size = 0x{:08x}",
         reg_addr, reg_size
     );
-    if let Some(mut ranges) = fdt.find_node("/soc").and_then(|f| f.ranges()) {
+    if let Some(ranges) = fdt.find_node("/soc").and_then(|f| f.ranges()) {
         let range = ranges
-            .find(|f| f.child_bus_address <= reg_addr && reg_addr - f.child_bus_address < f.size)
+            .iter::<usize, usize, usize>()
+            .map(|f| f.expect("invalid range"))
+            .find(|f| f.child_bus_address <= reg_addr && reg_addr - f.child_bus_address < f.len)
             .expect("Couldn't find device range in /soc/@ranges");
         reg_addr = range.parent_bus_address + (reg_addr - range.child_bus_address);
         println!(
@@ -64,10 +72,7 @@ fn daemon(daemon: daemon::Daemon) -> ! {
         )
         .expect("bcm2835-sdhcid: failed to map address") as usize
     };
-    println!(
-        "ioremap 0x{:08x} to 0x{:08x} 2222",
-        reg.starting_address as usize, addr
-    );
+    println!("ioremap 0x{:08x} to 0x{:08x} 2222", reg.address, addr);
     let mut sdhci = sd::SdHostCtrl::new(addr);
     unsafe {
         sdhci.init();
@@ -97,7 +102,7 @@ fn daemon(daemon: daemon::Daemon) -> ! {
         */
     }
 
-    let mut disks = vec![sdhci];
+    let disks = vec![sdhci];
     let mut scheme = DiskScheme::new(
         Some(daemon),
         "disk.mmc".to_string(),
