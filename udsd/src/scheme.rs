@@ -130,6 +130,7 @@ pub trait Socket: Sized {
 
 enum Handle<S: Socket> {
     Socket(Rc<RefCell<S>>),
+    Entrypoint(Rc<RefCell<S>>),
     SchemeRoot,
 }
 
@@ -196,8 +197,9 @@ impl<'sock, S: Socket> UdsScheme<'sock, S> {
     pub(super) fn get_socket(&self, id: usize) -> Result<&Rc<RefCell<S>>, Error> {
         self.handles
             .get(&id)
-            .and_then(Handle::as_socket)
-            .ok_or(Error::new(EBADF))
+            .ok_or(Error::new(EBADF))?
+            .as_socket()
+            .ok_or(Error::new(EINVAL))
     }
 
     pub(super) fn insert_socket(&mut self, id: usize, socket: Rc<RefCell<S>>) {
@@ -280,6 +282,27 @@ impl<'sock, S: Socket> SchemeSync for UdsScheme<'sock, S> {
             eprintln!("call_inner: Invalid verb in metadata: {:?}", metadata);
             return Err(Error::new(EINVAL));
         };
+        match verb {
+            SocketCall::GetToken => {
+                let handle = self.handles.get(&id).ok_or(Error::new(EBADF))?;
+                let socket = match handle {
+                    Handle::Socket(socket) | Handle::Entrypoint(socket) => socket,
+                    _ => return Err(Error::new(EBADF)),
+                };
+                let Some(token) = socket.borrow().issued_token() else {
+                    return Err(Error::new(EINVAL));
+                };
+                let token_bytes = token.to_le_bytes();
+                let token_bytes_len = token_bytes.len();
+                if payload.len() < token_bytes_len {
+                    eprintln!("handle_get_token(id: {id}): Payload buffer is too small for token.",);
+                    return Err(Error::new(ENOBUFS));
+                }
+                payload[..token_bytes_len].copy_from_slice(&token_bytes);
+                return Ok(token_bytes_len);
+            }
+            _ => {}
+        }
         let socket = self.get_socket(id)?;
         match verb {
             SocketCall::Bind => S::handle_bind(self, id, &payload),
@@ -329,19 +352,7 @@ impl<'sock, S: Socket> SchemeSync for UdsScheme<'sock, S> {
                 payload,
             ),
             SocketCall::Unbind => socket.borrow_mut().handle_unbind(),
-            SocketCall::GetToken => {
-                let Some(token) = socket.borrow().issued_token() else {
-                    return Err(Error::new(EINVAL));
-                };
-                let token_bytes = token.to_le_bytes();
-                let token_bytes_len = token_bytes.len();
-                if payload.len() < token_bytes_len {
-                    eprintln!("handle_get_token(id: {id}): Payload buffer is too small for token.",);
-                    return Err(Error::new(ENOBUFS));
-                }
-                payload[..token_bytes_len].copy_from_slice(&token_bytes);
-                Ok(token_bytes_len)
-            }
+            SocketCall::GetToken => unreachable!("handled above"),
             SocketCall::GetPeerName => S::handle_get_peer_name(self, socket, payload),
             _ => Err(Error::new(EOPNOTSUPP)),
         }
@@ -354,6 +365,16 @@ impl<'sock, S: Socket> SchemeSync for UdsScheme<'sock, S> {
             b"connect" => S::handle_connect_socketpair(self, id, ctx),
             // listen will generate a id for same socket
             b"recvfd" => self.get_socket(id)?.borrow_mut().handle_recvfd(),
+            b"entrypoint" => {
+                let socket = self.get_socket(id)?;
+                let id = self.next_id;
+                self.handles.insert(id, Handle::Entrypoint(socket.clone()));
+                self.next_id += 1;
+                Ok(OpenResult::ThisScheme {
+                    number: id,
+                    flags: NewFdFlags::empty(),
+                })
+            }
             _ => Err(Error::new(EINVAL)),
         }
     }
@@ -372,7 +393,7 @@ impl<'sock, S: Socket> SchemeSync for UdsScheme<'sock, S> {
     fn fpath(&mut self, id: usize, buf: &mut [u8], _ctx: &CallerCtx) -> Result<usize> {
         match self.handles.get(&id).ok_or(Error::new(EBADF))? {
             Handle::SchemeRoot => Ok(self.fpath_inner(&String::new(), buf)?),
-            Handle::Socket(socket_rc) => {
+            Handle::Socket(socket_rc) | Handle::Entrypoint(socket_rc) => {
                 let socket = socket_rc.borrow();
                 let path = socket.path().unwrap_or("");
                 Ok(self.fpath_inner(path, buf)?)
@@ -434,7 +455,10 @@ impl<'sock, S: Socket> SchemeSync for UdsScheme<'sock, S> {
     }
 
     fn fstat(&mut self, id: usize, stat: &mut Stat, _ctx: &CallerCtx) -> Result<()> {
-        self.get_socket(id)?;
+        match self.handles.get(&id).ok_or(Error::new(EBADF))? {
+            Handle::Socket(_) | Handle::Entrypoint(_) => {}
+            _ => return Err(Error::new(EINVAL)),
+        };
 
         *stat = Stat {
             st_mode: MODE_SOCK,
