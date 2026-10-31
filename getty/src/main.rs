@@ -70,9 +70,8 @@ pub fn handle(event_queue: &mut mio::Poll, tty: &mut File, master: &mut File, pr
                     Err(ref err) if err.raw_os_error() == Some(EAGAIN) => break,
                     Err(_) => panic!("getty: failed to read from TTY"),
                 };
-                master
-                    .write_all(&packet[..count])
-                    .expect("getty: failed to write master PTY");
+
+                write_nonblocking(master, &packet[..count], "master PTY");
             }
         } else if event_id == MASTER {
             let mut packet = [0; 4096];
@@ -83,8 +82,8 @@ pub fn handle(event_queue: &mut mio::Poll, tty: &mut File, master: &mut File, pr
                     Err(ref err) if err.raw_os_error() == Some(EAGAIN) => break,
                     Err(_) => panic!("getty: failed to read from master TTY"),
                 };
-                tty.write_all(&packet[1..count])
-                    .expect("getty: failed to write to TTY");
+
+                write_nonblocking(tty, &packet[1..count], "TTY");
                 if packet[0] & 1 == 1 {
                     let _ = tty.sync_all();
                 }
@@ -118,6 +117,22 @@ pub fn handle(event_queue: &mut mio::Poll, tty: &mut File, master: &mut File, pr
 
     let _ = process.kill();
     process.wait().expect("getty: failed to wait on login");
+}
+
+fn write_nonblocking(file: &mut File, mut data: &[u8], name: &str) {
+    while !data.is_empty() {
+        match file.write(data) {
+            Ok(0) => panic!("getty: failed to write to {}: zero bytes written", name),
+            Ok(n) => data = &data[n..],
+            Err(ref err) if err.kind() == ErrorKind::Interrupted => {
+                // signal interrupt can be retried in instant
+            }
+            Err(ref err) if err.kind() == ErrorKind::WouldBlock => {
+                std::thread::yield_now();
+            }
+            Err(err) => panic!("getty: failed to write to {}: {:?}", name, err),
+        }
+    }
 }
 
 pub fn getpty(columns: u16, lines: u16) -> (File, String) {
