@@ -4,8 +4,6 @@ use std::fmt::Debug;
 
 use libredox::protocol::ProcMeta;
 use libredox::Fd;
-use rand::rngs::SmallRng;
-use rand::SeedableRng;
 use syscall::error::*;
 use syscall::Error;
 
@@ -382,20 +380,4 @@ pub(crate) fn path_buf_to_str(path_buf: &[u8]) -> Result<&str> {
         Ok(s) => Ok(s),
         Err(_) => Err(Error::new(EINVAL)),
     }
-}
-
-pub(crate) fn create_token_generator() -> SmallRng {
-    let mut seed = <SmallRng as SeedableRng>::Seed::default();
-    if let Err(err) = getrandom(seed.as_mut()) {
-        panic!("from_entropy failed: {}", err);
-    }
-    SmallRng::from_seed(seed)
-}
-fn getrandom(buf: &mut [u8]) -> Result<usize> {
-    let fd = libredox::Fd::open(
-        "/scheme/rand",
-        libredox::flag::O_RDONLY | libredox::flag::O_CLOEXEC,
-        0,
-    )?;
-    Ok(fd.read(buf)?)
 }

@@ -8,7 +8,6 @@ use std::rc::Rc;
 
 use libc::{AF_UNIX, SO_DOMAIN, SO_PASSCRED};
 use libredox::Fd;
-use rand::Rng;
 use redox_scheme::{CallerCtx, OpenResult, RecvFdRequest, SendFdRequest};
 use syscall::error::*;
 use syscall::flag::*;
@@ -33,7 +32,6 @@ pub struct Socket {
     options: BTreeSet<i32>,
     fds: VecDeque<usize>,
     flags: usize,
-    issued_token: Option<u64>,
     snd_buf_size: usize,
 }
 
@@ -233,7 +231,6 @@ impl super::scheme::Socket for Socket {
 
         let socket_rc = scheme.get_socket(id)?.clone();
         let path_owned: String;
-        let token: u64;
         {
             let mut socket = socket_rc.borrow_mut();
 
@@ -248,11 +245,7 @@ impl super::scheme::Socket for Socket {
             path_owned = path.to_string();
             socket.path = Some(path_owned.clone());
             socket.state = State::Bound;
-            token = scheme.rng.next_u64();
-            socket.issued_token = Some(token);
         }
-
-        scheme.socket_tokens.insert(token, socket_rc);
 
         Ok(0)
     }
@@ -601,16 +594,12 @@ impl super::scheme::Socket for Socket {
         }
     }
 
-    fn handle_closure(scheme: &mut UdsScheme<Self>, id: usize, socket_rc: Rc<RefCell<Self>>) {
+    fn handle_closure(_scheme: &mut UdsScheme<Self>, id: usize, socket_rc: Rc<RefCell<Self>>) {
         let mut socket = socket_rc.borrow_mut();
         if socket.primary_id == id {
             socket.state = State::Closed;
             socket.peer = None;
             socket.path = None;
-
-            if let Some(token) = socket.issued_token {
-                scheme.socket_tokens.remove(&token);
-            }
         }
     }
 
@@ -628,9 +617,5 @@ impl super::scheme::Socket for Socket {
 
     fn set_flags(&mut self, flags: usize) {
         self.flags = flags;
-    }
-
-    fn issued_token(&self) -> Option<u64> {
-        self.issued_token
     }
 }
