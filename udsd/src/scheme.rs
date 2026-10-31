@@ -358,6 +358,40 @@ impl<'sock, S: Socket> SchemeSync for UdsScheme<'sock, S> {
         }
     }
 
+    fn call_multiple_ids(
+        &mut self,
+        ids: &[usize],
+        _payload: &mut [u8],
+        metadata: &[u64],
+        _ctx: &CallerCtx,
+    ) -> Result<usize> {
+        if ids.len() != 2 {
+            return Err(syscall::Error::new(syscall::EINVAL));
+        }
+        if ids[0] == ids[1] {
+            return Err(syscall::Error::new(syscall::EINVAL));
+        }
+
+        let Some(verb) =
+            SocketCall::try_from_raw(*metadata.get(0).ok_or(Error::new(EINVAL))? as usize)
+        else {
+            eprintln!("call_inner: Invalid verb in metadata: {:?}", metadata);
+            return Err(Error::new(EINVAL));
+        };
+
+        let socket = self.get_socket(ids[0])?;
+        match verb {
+            SocketCall::Connect => {
+                let target_handle = self.handles.get(&ids[1]).ok_or(Error::new(EBADF))?;
+                let Handle::Entrypoint(target_socket) = target_handle else {
+                    return Err(Error::new(EINVAL));
+                };
+                S::handle_connect(self, socket, target_socket)
+            }
+            _ => Err(Error::new(EINVAL)),
+        }
+    }
+
     fn dup(&mut self, id: usize, buf: &[u8], ctx: &CallerCtx) -> Result<OpenResult> {
         match buf {
             // Connect for socket pair
