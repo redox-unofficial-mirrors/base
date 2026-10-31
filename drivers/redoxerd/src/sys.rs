@@ -72,16 +72,20 @@ mod imp {
             panic!("dtb is empty");
         }
 
-        let fdt = Fdt::new(&dtb_data).unwrap();
+        let fdt = Fdt::new_unaligned(&dtb_data).unwrap();
         let with = ["sifive,test1"];
-        let compat_node = fdt.find_compatible(&with).unwrap();
-        let reg = compat_node.reg().unwrap().next().unwrap();
-        let reg_size = reg.size.unwrap();
-        let reg_addr = reg.starting_address as usize;
+        let compat_node = fdt.all_compatible(&with).next().unwrap();
+        let reg = compat_node
+            .reg()
+            .unwrap()
+            .iter::<usize, usize>()
+            .next()
+            .unwrap()
+            .unwrap();
 
-        let addr = unsafe { physmap(reg_addr, reg_size, Prot::RW, MemoryType::Uncacheable) }
+        let addr = unsafe { physmap(reg.address, reg.len, Prot::RW, MemoryType::Uncacheable) }
             .expect("unable to physmap redoxer device");
-        let q = qemu_exit::RISCV64::new(addr.addr() as u64);
+        let q = qemu_exit::RISCV64::new(addr.expose_provenance() as u64);
         if success {
             q.exit(51);
         } else {

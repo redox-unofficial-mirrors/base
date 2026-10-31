@@ -2,12 +2,20 @@ use std::sync::Mutex;
 use std::{fs, io};
 
 use common::{MemoryType, PhysBorrowed, Prot};
-use fdt::Fdt;
+use fdt::properties::cells::AddressCells;
+use fdt::properties::interrupts::InterruptCells;
+use fdt::properties::PHandle;
 use pci_types::{ConfigRegionAccess, PciAddress};
 
 use self::fallback::Pci;
 
 mod fallback;
+
+type FdtParser<'a> = (
+    fdt::parsing::unaligned::UnalignedParser<'a>,
+    fdt::parsing::Panic,
+);
+type Fdt<'a> = fdt::Fdt<'a, FdtParser<'a>>;
 
 pub struct InterruptMap {
     pub addr: [u32; 3],
@@ -22,7 +30,7 @@ fn locate_ecam_dtb<T>(
     f: impl FnOnce(PcieAllocs<'_>, Vec<InterruptMap>, [u32; 4]) -> io::Result<T>,
 ) -> io::Result<T> {
     let dtb = fs::read("/scheme/kernel.dtb")?;
-    let dt = Fdt::new(&dtb).map_err(|err| {
+    let dt = Fdt::new_unaligned(&dtb).map_err(|err| {
         io::Error::new(
             io::ErrorKind::InvalidData,
             format!("invalid device tree: {err:?}"),
@@ -30,7 +38,8 @@ fn locate_ecam_dtb<T>(
     })?;
 
     let node = dt
-        .find_compatible(&["pci-host-ecam-generic"])
+        .all_compatible(&["pci-host-ecam-generic"])
+        .next()
         .ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::NotFound,
@@ -38,29 +47,31 @@ fn locate_ecam_dtb<T>(
             )
         })?;
 
-    let address = node.reg().unwrap().next().unwrap().starting_address as u64;
+    let address = node
+        .reg()
+        .unwrap()
+        .iter::<u64, u64>()
+        .next()
+        .unwrap()
+        .unwrap()
+        .address;
 
-    let bus_range = node.property("bus-range").unwrap();
+    let bus_range = node.raw_property("bus-range").unwrap();
     assert_eq!(bus_range.value.len(), 8);
     let start_bus = u32::from_be_bytes(<[u8; 4]>::try_from(&bus_range.value[0..4]).unwrap());
     let end_bus = u32::from_be_bytes(<[u8; 4]>::try_from(&bus_range.value[4..8]).unwrap());
 
     // address-cells == 3, size-cells == 2, interrupt-cells == 1
     let mut interrupt_map_data = node
-        .property("interrupt-map")
+        .raw_property("interrupt-map") // FIXME use fdt's InterruptMap
         .unwrap()
         .value
         .chunks_exact(4)
         .map(|x| u32::from_be_bytes(<[u8; 4]>::try_from(x).unwrap()));
     let mut interrupt_map = Vec::<InterruptMap>::new();
     while let Ok([addr1, addr2, addr3, int1, phandle]) = interrupt_map_data.next_chunk::<5>() {
-        let parent = dt.find_phandle(phandle).unwrap();
-        let parent_address_cells = u32::from_be_bytes(
-            parent.property("#address-cells").unwrap().value[..4]
-                .try_into()
-                .unwrap(),
-        );
-        match parent_address_cells {
+        let parent = dt.root().resolve_phandle(PHandle::new(phandle)).unwrap();
+        match parent.property::<AddressCells>().unwrap().0 {
             0 => {}
             1 => {
                 assert_eq!(interrupt_map_data.next().unwrap(), 0);
@@ -73,7 +84,7 @@ fn locate_ecam_dtb<T>(
             }
             _ => break,
         };
-        let parent_interrupt_cells = parent.interrupt_cells().unwrap();
+        let parent_interrupt_cells = parent.property::<InterruptCells>().unwrap().0;
         let parent_interrupt = match parent_interrupt_cells {
             1 if let Some(a) = interrupt_map_data.next() => [a, 0, 0],
             2 if let Ok([a, b]) = interrupt_map_data.next_chunk::<2>() => [a, b, 0],
@@ -89,9 +100,9 @@ fn locate_ecam_dtb<T>(
         });
     }
 
-    let interrupt_map_mask = if let Some(interrupt_mask_node) = node.property("interrupt-map-mask")
-    {
-        let mut cells = interrupt_mask_node
+    // FIXME use fdt's InterruptMapMask
+    let interrupt_map_mask = if let Some(interrupt_mask) = node.raw_property("interrupt-map-mask") {
+        let mut cells = interrupt_mask
             .value
             .chunks_exact(4)
             .map(|x| u32::from_be_bytes(<[u8; 4]>::try_from(x).unwrap()));

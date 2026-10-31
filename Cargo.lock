@@ -271,7 +271,7 @@ dependencies = [
  "common",
  "daemon",
  "driver-block",
- "fdt 0.2.0-alpha1",
+ "fdt",
  "libredox 0.2.0",
  "redox_event",
  "redox_syscall 0.9.5",
@@ -912,14 +912,9 @@ dependencies = [
 
 [[package]]
 name = "fdt"
-version = "0.1.5"
+version = "0.2.0-alpha3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "784a4df722dc6267a04af36895398f59d21d07dce47232adf31ec0ff2fa45e67"
-
-[[package]]
-name = "fdt"
-version = "0.2.0-alpha1"
-source = "git+https://github.com/repnop/fdt.git?rev=059bb23#059bb2383873f8001959456e36ec123228f67642"
+checksum = "addf728870aa3321a3a3a5d564ddf72b8ebb4dfbfd608a1befd43e8710b2a2b5"
 
 [[package]]
 name = "find-msvc-tools"
@@ -1180,7 +1175,7 @@ dependencies = [
  "amlserde",
  "common",
  "daemon",
- "fdt 0.1.5",
+ "fdt",
  "libredox 0.2.0",
  "log",
  "redox_syscall 0.9.5",
@@ -1793,7 +1788,7 @@ dependencies = [
  "bincode",
  "common",
  "daemon",
- "fdt 0.1.5",
+ "fdt",
  "libc",
  "libredox 0.2.0",
  "log",
@@ -2215,7 +2210,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "common",
- "fdt 0.1.5",
+ "fdt",
  "libc",
  "libredox 0.2.0",
  "qemu-exit",
