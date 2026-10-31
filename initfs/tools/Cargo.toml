@@ -23,7 +23,7 @@ env_logger = "0.8"
 log.workspace = true
 pathdiff = "0.2.1"
 plain.workspace = true
-twox-hash = "1.6"
+twox-hash = "2.1.5"
 
 redox-initfs = {path = ".."}
 
