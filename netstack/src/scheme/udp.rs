@@ -438,11 +438,11 @@ impl<'a> SchemeSocket for UdpSocket<'a> {
             _ => Err(SyscallError::new(syscall::ENOPROTOOPT)),
         }
     }
-    
+
     fn validate_dup(path: &str) -> SyscallResult<()> {
         match path {
             "listen" => Err(SyscallError::new(syscall::EOPNOTSUPP)),
-            _ => Ok(())
+            _ => Ok(()),
         }
     }
 }

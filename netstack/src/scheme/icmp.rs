@@ -302,4 +302,10 @@ impl<'a> SchemeSocket for IcmpSocket<'a> {
         }
         Ok(0)
     }
+    fn validate_dup(path: &str) -> SyscallResult<()> {
+        match path {
+            "listen" => Err(SyscallError::new(syscall::EOPNOTSUPP)),
+            _ => Ok(()),
+        }
+    }
 }

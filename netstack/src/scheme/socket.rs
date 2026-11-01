@@ -258,7 +258,7 @@ where
     }
 
     fn validate_dup(path: &str) -> SyscallResult<()> {
-        // Only UDP needs to verify the path before duplicating in case of accept on a null socket 
+        // Only UDP needs to verify the path before duplicating in case of accept on a null socket
         Ok(())
     }
 }
@@ -777,10 +777,10 @@ where
                         null.write_enabled,
                     );
 
-                    let path = str::from_utf8(buf)
-                        .or_else(|_| Err(SyscallError::new(syscall::EINVAL)))?;
+                    let path =
+                        str::from_utf8(buf).or_else(|_| Err(SyscallError::new(syscall::EINVAL)))?;
 
-                    SocketT::validate_dup(path)?; 
+                    SocketT::validate_dup(path)?;
 
                     // dup from empty path to a new path
                     return self.open_inner(path, flags, uid, gid, read_enabled, write_enabled);
