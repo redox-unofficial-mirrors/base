@@ -2715,7 +2715,6 @@ dependencies = [
  "daemon",
  "libc",
  "libredox 0.2.0",
- "rand 0.10.2",
  "redox-scheme",
  "redox_event",
  "redox_syscall 0.9.5",

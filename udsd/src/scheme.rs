@@ -4,7 +4,6 @@ use std::rc::Rc;
 
 use libredox::protocol::SocketCall;
 use libredox::Fd;
-use rand::rngs::SmallRng;
 use redox_scheme::scheme::SchemeSync;
 use redox_scheme::{
     CallerCtx, OpenResult, RecvFdRequest, Response, SendFdRequest, SignalBehavior,
@@ -15,8 +14,6 @@ use syscall::error::*;
 use syscall::flag::*;
 use syscall::schemev2::NewFdFlags;
 use syscall::{Error, Stat};
-
-use crate::common::{create_token_generator, read_num};
 
 #[derive(Clone, Copy, Default)]
 pub struct MsgFlags(libc::c_int);
@@ -125,7 +122,6 @@ pub trait Socket: Sized {
     fn events(&self) -> EventFlags;
     fn get_flags(&self) -> usize;
     fn set_flags(&mut self, flags: usize);
-    fn issued_token(&self) -> Option<u64>;
 }
 
 enum Handle<S: Socket> {
@@ -150,11 +146,9 @@ impl<S: Socket> Handle<S> {
 pub struct UdsScheme<'sock, S: Socket> {
     handles: BTreeMap<usize, Handle<S>>,
     pub(super) next_id: usize,
-    pub(super) socket_tokens: BTreeMap<u64, Rc<RefCell<S>>>,
     pub(super) socket: &'sock SchemeSocket,
     pub(super) scheme_name: String,
     pub(super) proc_creds_capability: Fd,
-    pub(super) rng: SmallRng,
 }
 
 impl<'sock, S: Socket> UdsScheme<'sock, S> {
@@ -162,7 +156,6 @@ impl<'sock, S: Socket> UdsScheme<'sock, S> {
         Ok(Self {
             handles: BTreeMap::new(),
             next_id: 0,
-            socket_tokens: BTreeMap::new(),
             socket,
             scheme_name,
             proc_creds_capability: {
@@ -172,7 +165,6 @@ impl<'sock, S: Socket> UdsScheme<'sock, S> {
                     0,
                 )?
             },
-            rng: create_token_generator(),
         })
     }
 
@@ -282,47 +274,9 @@ impl<'sock, S: Socket> SchemeSync for UdsScheme<'sock, S> {
             eprintln!("call_inner: Invalid verb in metadata: {:?}", metadata);
             return Err(Error::new(EINVAL));
         };
-        match verb {
-            SocketCall::GetToken => {
-                let handle = self.handles.get(&id).ok_or(Error::new(EBADF))?;
-                let socket = match handle {
-                    Handle::Socket(socket) | Handle::Entrypoint(socket) => socket,
-                    _ => return Err(Error::new(EBADF)),
-                };
-                let Some(token) = socket.borrow().issued_token() else {
-                    return Err(Error::new(EINVAL));
-                };
-                let token_bytes = token.to_le_bytes();
-                let token_bytes_len = token_bytes.len();
-                if payload.len() < token_bytes_len {
-                    eprintln!("handle_get_token(id: {id}): Payload buffer is too small for token.",);
-                    return Err(Error::new(ENOBUFS));
-                }
-                payload[..token_bytes_len].copy_from_slice(&token_bytes);
-                return Ok(token_bytes_len);
-            }
-            _ => {}
-        }
         let socket = self.get_socket(id)?;
         match verb {
             SocketCall::Bind => S::handle_bind(self, id, &payload),
-            SocketCall::Connect => {
-                let token = read_num::<u64>(payload)?;
-
-                let target_rc = self
-                    .socket_tokens
-                    .get(&token)
-                    .ok_or(Error::new(ECONNREFUSED))?;
-                let target_socket_token = target_rc
-                    .borrow()
-                    .issued_token()
-                    .ok_or(Error::new(ECONNREFUSED))?;
-                if target_socket_token != token {
-                    return Err(Error::new(EACCES));
-                }
-
-                S::handle_connect(self, self.get_socket(id)?, target_rc)
-            }
             SocketCall::SetSockOpt => socket
                 .borrow_mut()
                 .handle_setsockopt(*metadata.get(1).ok_or(Error::new(EINVAL))? as i32, &payload),
@@ -352,7 +306,6 @@ impl<'sock, S: Socket> SchemeSync for UdsScheme<'sock, S> {
                 payload,
             ),
             SocketCall::Unbind => socket.borrow_mut().handle_unbind(),
-            SocketCall::GetToken => unreachable!("handled above"),
             SocketCall::GetPeerName => S::handle_get_peer_name(self, socket, payload),
             _ => Err(Error::new(EOPNOTSUPP)),
         }

@@ -6,7 +6,6 @@ use std::rc::Rc;
 use std::{cmp, slice};
 
 use libc::{ucred, AF_UNIX};
-use rand::prelude::*;
 use redox_scheme::{CallerCtx, OpenResult, RecvFdRequest, SendFdRequest};
 use syscall::error::*;
 use syscall::flag::*;
@@ -174,7 +173,6 @@ pub struct Socket {
     state: State,
     awaiting: VecDeque<usize>,
     connection: Option<Connection>,
-    issued_token: Option<u64>,
     ucred: ucred,
 }
 
@@ -196,7 +194,6 @@ impl Socket {
             flags,
             awaiting: VecDeque::new(),
             connection,
-            issued_token: None,
             //TODO: when should ucred be updated? man 7 unix for SO_PEERCRED says on connect, listen, or socketpair
             ucred: ucred {
                 pid: ctx.pid as _,
@@ -504,7 +501,6 @@ impl super::scheme::Socket for Socket {
 
         let socket_rc = scheme.get_socket(id)?.clone();
         let path_owned: String;
-        let token: u64;
         {
             let mut socket = socket_rc.borrow_mut();
 
@@ -519,14 +515,10 @@ impl super::scheme::Socket for Socket {
             path_owned = path.to_string();
             socket.path = Some(path_owned.clone());
             socket.state = State::Bound;
-            token = scheme.rng.next_u64();
-            socket.issued_token = Some(token);
 
             //TODO: Hack since relibc does not listen()
             socket.start_listening()?;
         }
-
-        scheme.socket_tokens.insert(token, socket_rc);
 
         Ok(0)
     }
@@ -1028,19 +1020,11 @@ impl super::scheme::Socket for Socket {
     fn set_flags(&mut self, flags: usize) {
         self.flags = flags;
     }
-
-    fn issued_token(&self) -> Option<u64> {
-        self.issued_token
-    }
 }
 
 impl Socket {
     fn handle_listening_closure(scheme: &mut UdsScheme<Self>, socket_rc: Rc<RefCell<Socket>>) {
         let socket = socket_rc.borrow();
-
-        if let Some(token) = &socket.issued_token {
-            scheme.socket_tokens.remove(&token);
-        }
 
         // Notify all waiting clients about listener closure
         for client_id in &socket.awaiting {
@@ -1076,9 +1060,6 @@ impl Socket {
         }
 
         socket.path = None;
-        if let Some(token) = socket.issued_token {
-            scheme.socket_tokens.remove(&token);
-        }
         socket.state = State::Closed;
     }
 }
