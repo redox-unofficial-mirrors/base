@@ -235,7 +235,7 @@ impl<'a> SchemeSocket for UdpSocket<'a> {
         let file = match path {
             "listen" => {
                 // there's no accept() for UDP
-                return Err(SyscallError::new(syscall::EAFNOSUPPORT));
+                return Err(SyscallError::new(syscall::EOPNOTSUPP));
             }
             "disconnect" => {
                 let remote_endpoint = IpListenEndpoint {
@@ -441,7 +441,7 @@ impl<'a> SchemeSocket for UdpSocket<'a> {
     
     fn validate_dup(path: &str) -> SyscallResult<()> {
         match path {
-            "listen" => Err(SyscallError::new(syscall::EAFNOSUPPORT)),
+            "listen" => Err(SyscallError::new(syscall::EOPNOTSUPP)),
             _ => Ok(())
         }
     }
