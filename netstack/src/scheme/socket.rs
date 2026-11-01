@@ -5,7 +5,7 @@ use std::io::{Read, Write};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
-use std::str;
+use std::{str, usize};
 
 use libredox::flag::CLOCK_MONOTONIC;
 use libredox::protocol::SocketCall;
@@ -255,6 +255,11 @@ where
     ) -> SyscallResult<usize> {
         // Return Err for default implementation
         Err(SyscallError::new(syscall::ENOPROTOOPT))
+    }
+
+    fn validate_dup(path: &str) -> SyscallResult<()> {
+        // Only UDP needs to verify the path before duplicating in case of accept on a null socket 
+        Ok(())
     }
 }
 
@@ -771,6 +776,12 @@ where
                         null.read_enabled,
                         null.write_enabled,
                     );
+
+                    let path = str::from_utf8(buf)
+                        .or_else(|_| Err(SyscallError::new(syscall::EINVAL)))?;
+
+                    SocketT::validate_dup(path)?; 
+
                     // dup from empty path to a new path
                     return self.open_inner(path, flags, uid, gid, read_enabled, write_enabled);
                 }
