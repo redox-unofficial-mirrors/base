@@ -7,7 +7,7 @@ edition = "2024"
 [dependencies]
 drm-fourcc.workspace = true
 drm-sys.workspace = true
-edid.workspace = true #TODO: edid is abandoned, fork it and maintain?
+piaf.workspace = true
 log.workspace = true
 redox-ioctl.workspace = true
 redox-scheme.workspace = true

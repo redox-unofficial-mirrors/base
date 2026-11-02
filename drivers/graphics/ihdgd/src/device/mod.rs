@@ -11,6 +11,7 @@ use driver_graphics::GraphicsScheme;
 use drm_sys::drm_mode_modeinfo;
 use ihdgd_macros::define_regs;
 use pcid_interface::{PciFunction, PciFunctionHandle};
+use piaf::{capabilities_from_edid, EdidSource, ExtensionLibrary};
 use range_alloc::RangeAllocator;
 use syscall::error::{Error, Result, EIO, ENODEV, ERANGE};
 
@@ -689,7 +690,8 @@ impl Device {
             return Ok(false);
         }
 
-        match edid::parse(&edid_data).to_full_result() {
+        let tags = ExtensionLibrary::with_standard_handlers();
+        match piaf::parse_edid_owned(&edid_data, &tags) {
             Ok(edid) => {
                 log::info!("DDI {} EDID from {}: {:?}", ddi.name, source, edid);
                 connector.driver_data.edid = Some(edid);
@@ -729,7 +731,11 @@ impl Device {
             .driver_data
             .edid
             .as_ref()
-            .map_or(0, |x| x.display.video_input);
+            .and_then(|parsed| {
+                let library = ExtensionLibrary::with_standard_handlers();
+                let caps = capabilities_from_edid(parsed, &library);
+                caps.video_interface
+            });
 
         // Enable DDI power well
         //TODO: turn off wells later if not used
@@ -942,22 +948,19 @@ impl Device {
 
         if ddi.buf_ctl.read().idle() {
             log::info!("DDI {} idle, will attempt mode setting", ddi.name);
-            const EDID_VIDEO_INPUT_UNDEFINED: u8 = (1 << 7) | 0b0000;
-            const EDID_VIDEO_INPUT_DVI: u8 = (1 << 7) | 0b0001;
-            const EDID_VIDEO_INPUT_HDMI_A: u8 = (1 << 7) | 0b0010;
-            const EDID_VIDEO_INPUT_HDMI_B: u8 = (1 << 7) | 0b0011;
-            const EDID_VIDEO_INPUT_DP: u8 = (1 << 7) | 0b0101;
-            const EDID_VIDEO_INPUT_MASK: u8 = (1 << 7) | 0b1111;
-            let input = match edid_video_input & EDID_VIDEO_INPUT_MASK {
-                //TODO: how to accurately discover input type?
-                //TODO: HDMI often shows up as undefined, do others?
-                EDID_VIDEO_INPUT_UNDEFINED
-                | EDID_VIDEO_INPUT_DVI
-                | EDID_VIDEO_INPUT_HDMI_A
-                | EDID_VIDEO_INPUT_HDMI_B => VideoInput::Hdmi,
-                EDID_VIDEO_INPUT_DP => VideoInput::Dp,
-                unknown => {
-                    log::warn!("EDID video input 0x{:02X} not supported", unknown);
+            let input = match edid_video_input {
+                Some(
+                    piaf::VideoInterface::Dvi
+                    | piaf::VideoInterface::HdmiA
+                    | piaf::VideoInterface::HdmiB,
+                ) => VideoInput::Hdmi,
+                Some(piaf::VideoInterface::DisplayPort) => VideoInput::Dp,
+                Some(other) => {
+                    log::warn!("EDID video input {other:?} not supported");
+                    return Err(Error::new(EIO));
+                }
+                None => {
+                    log::warn!("EDID video input not detected");
                     return Err(Error::new(EIO));
                 }
             };

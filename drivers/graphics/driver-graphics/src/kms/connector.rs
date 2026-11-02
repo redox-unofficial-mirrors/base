@@ -6,6 +6,7 @@ use drm_sys::{
     DRM_MODE_CONNECTOR_Unknown, DRM_MODE_DPMS_OFF, DRM_MODE_DPMS_ON, DRM_MODE_DPMS_STANDBY,
     DRM_MODE_DPMS_SUSPEND, DRM_MODE_TYPE_PREFERRED, drm_mode_modeinfo,
 };
+use piaf::{ExtensionLibrary, VideoMode, capabilities_from_edid, parse_edid};
 use syscall::Result;
 
 use crate::GraphicsAdapter;
@@ -165,31 +166,21 @@ impl<T: GraphicsAdapter> KmsConnector<T> {
     }
 
     fn update_from_edid(&mut self, edid: &[u8]) {
-        let edid = edid::parse(edid).unwrap().1;
+        let library = ExtensionLibrary::with_standard_handlers();
+        let parsed = parse_edid(edid, &library).unwrap(); // TODO: error handling
+        let caps = capabilities_from_edid(&parsed, &library);
 
-        if let Some(first_detailed_timing) =
-            edid.descriptors
-                .iter()
-                .find_map(|descriptor| match descriptor {
-                    edid::Descriptor::DetailedTiming(detailed_timing) => Some(detailed_timing),
-                    _ => None,
-                })
-        {
-            self.mm_width = first_detailed_timing.horizontal_size.into();
-            self.mm_height = first_detailed_timing.vertical_size.into();
+        if let Some(first_detailed_timing) = caps.preferred_timing {
+            self.mm_width = first_detailed_timing.width.into();
+            self.mm_height = first_detailed_timing.height.into();
         } else {
             log::error!("No edid timing descriptor detected");
         }
 
-        self.modes = edid
-            .descriptors
+        self.modes = caps
+            .supported_modes
             .iter()
-            .filter_map(|descriptor| match descriptor {
-                edid::Descriptor::DetailedTiming(detailed_timing) => {
-                    Some(modeinfo_for_detailed_timing(detailed_timing))
-                }
-                _ => None,
-            })
+            .map(|detailed_timing| modeinfo_for_detailed_timing(detailed_timing))
             .collect::<Vec<_>>();
 
         // First detailed timing descriptor indicates preferred mode.
@@ -199,41 +190,38 @@ impl<T: GraphicsAdapter> KmsConnector<T> {
     }
 }
 
-pub fn modeinfo_for_detailed_timing(timing: &edid::DetailedTiming) -> drm_mode_modeinfo {
-    let hdisplay = timing.horizontal_active_pixels;
-    let htotal = hdisplay + timing.horizontal_blanking_pixels;
-    let hsync_start = hdisplay + timing.horizontal_front_porch;
-    let hsync_end = hsync_start + timing.horizontal_sync_width;
-    let vdisplay = timing.vertical_active_lines;
-    let vtotal = vdisplay + timing.vertical_blanking_lines;
-    let vsync_start = vdisplay + timing.vertical_front_porch;
-    let vsync_end = vsync_start + timing.vertical_sync_width;
+pub fn modeinfo_for_detailed_timing(timing: &VideoMode) -> drm_mode_modeinfo {
+    let hdisplay = timing.width;
+    let htotal = hdisplay + timing.h_blank.unwrap(); // TODO: error handling
+    let hsync_start = hdisplay + timing.h_front_porch;
+    let hsync_end = hsync_start + timing.h_sync_width;
+    let vdisplay = timing.height;
+    let vtotal = vdisplay + (u16::from(timing.v_border) + u16::from(timing.v_border));
+    let vsync_start = vdisplay + timing.v_front_porch;
+    let vsync_end = vsync_start + timing.v_sync_width;
 
-    let clock = timing.pixel_clock;
+    let clock = timing.pixel_clock_khz.unwrap(); // TODO: error handling
     let vrefresh = (clock * 1000) / ((htotal as u32) * (vtotal as u32));
 
     let mut flags = 0;
-    match (timing.features >> 3) & 0b11 {
-        // Digital sync, separate
-        0b11 => {
-            if (timing.features & (1 << 2)) != 0 {
-                // vsync is positive polarity
+    match timing.sync {
+        Some(piaf::SyncDefinition::DigitalSeparate {
+            v_sync_positive,
+            h_sync_positive,
+        }) => {
+            if v_sync_positive {
                 flags |= drm_sys::DRM_MODE_FLAG_PVSYNC;
             } else {
-                // vsync is negative polarity
                 flags |= drm_sys::DRM_MODE_FLAG_NVSYNC;
             }
-            if (timing.features & (1 << 1)) != 0 {
-                // hsync is positive polarity
+            if h_sync_positive {
                 flags |= drm_sys::DRM_MODE_FLAG_PHSYNC;
             } else {
-                // hsync is negative polarity
                 flags |= drm_sys::DRM_MODE_FLAG_NHSYNC;
             }
         }
-        unsupported => {
-            log::warn!("unsupported sync {:#x}", unsupported);
-        }
+        Some(unsupported) => log::warn!("unsupported sync {:?}", unsupported),
+        None => log::warn!("not a DTD mode"),
     }
 
     let mut modeinfo = drm_mode_modeinfo {

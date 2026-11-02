@@ -8,7 +8,7 @@ edition = "2021"
 bitbang-hal = "0.3"
 drm-fourcc.workspace = true
 drm-sys.workspace = true
-edid.workspace = true #TODO: edid is abandoned, fork it and maintain?
+piaf.workspace = true
 #TODO: waiting for bitbang-hal to update to embedded-hal 1.0
 embedded-hal = { version = "0.2.7", features = ["unproven"] }
 log.workspace = true
