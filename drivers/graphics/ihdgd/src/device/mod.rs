@@ -11,7 +11,7 @@ use driver_graphics::GraphicsScheme;
 use drm_sys::drm_mode_modeinfo;
 use ihdgd_macros::define_regs;
 use pcid_interface::{PciFunction, PciFunctionHandle};
-use piaf::{capabilities_from_edid, EdidSource, ExtensionLibrary};
+use piaf::{capabilities_from_edid, ExtensionLibrary};
 use range_alloc::RangeAllocator;
 use syscall::error::{Error, Result, EIO, ENODEV, ERANGE};
 
@@ -948,6 +948,8 @@ impl Device {
 
         if ddi.buf_ctl.read().idle() {
             log::info!("DDI {} idle, will attempt mode setting", ddi.name);
+            //TODO: how to accurately discover input type?
+            //TODO: HDMI often shows up as undefined, do others?
             let input = match edid_video_input {
                 Some(
                     piaf::VideoInterface::Dvi
