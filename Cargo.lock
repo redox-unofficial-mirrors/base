@@ -45,7 +45,7 @@ dependencies = [
  "log",
  "num-derive",
  "num-traits",
- "parking_lot 0.12.5",
+ "parking_lot",
  "plain",
  "redox-scheme",
  "redox_event",
@@ -105,7 +105,7 @@ dependencies = [
  "libc",
  "log",
  "miow",
- "parking_lot 0.12.5",
+ "parking_lot",
  "piper",
  "polling",
  "regex-automata",
@@ -411,12 +411,12 @@ dependencies = [
 
 [[package]]
 name = "chashmap"
-version = "2.2.2"
+version = "2.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff41a3c2c1e39921b9003de14bf0439c7b63a9039637c291e1a64925d8ddfa45"
+checksum = "8dd97da62ab8f4186abb2bfd6a7c426a79e438ffe24f86991496af477171e72c"
 dependencies = [
  "owning_ref",
- "parking_lot 0.4.8",
+ "parking_lot",
 ]
 
 [[package]]
@@ -921,12 +921,6 @@ name = "find-msvc-tools"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e0f1c7c3a72c66fd80abe965175f7523475c0489a87d3ff9d6e8c87d87a9d2d"
-
-[[package]]
-name = "fuchsia-cprng"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
 
 [[package]]
 name = "fuse-abi"
@@ -1469,6 +1463,7 @@ version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "224399e74b87b5f3557511d98dff8b14089b3dadafcab6bb93eab67d3aace965"
 dependencies = [
+ "owning_ref",
  "scopeguard",
 ]
 
@@ -1631,12 +1626,12 @@ dependencies = [
  "libc",
  "libredox 0.2.0",
  "log",
- "parking_lot 0.12.5",
+ "parking_lot",
  "partitionlib",
  "pcid",
  "redox_event",
  "redox_syscall 0.9.5",
- "smallvec 1.16.0",
+ "smallvec",
 ]
 
 [[package]]
@@ -1669,9 +1664,9 @@ dependencies = [
 
 [[package]]
 name = "owning_ref"
-version = "0.3.3"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdf84f41639e037b484f93433aa3897863b561ed65c6e59c7073d7c561710f37"
+checksum = "6ff55baddef9e4ad00f88b6c743a2a8062d4c6ade126c2a528644b8e444d52ce"
 dependencies = [
  "stable_deref_trait",
 ]
@@ -1684,34 +1679,12 @@ checksum = "f38d5652c16fde515bb1ecef450ab0f6a219d619a7274976324d5e377f7dceba"
 
 [[package]]
 name = "parking_lot"
-version = "0.4.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "149d8f5b97f3c1133e3cfcd8886449959e856b557ff281e292b733d7c69e005e"
-dependencies = [
- "owning_ref",
- "parking_lot_core 0.2.14",
-]
-
-[[package]]
-name = "parking_lot"
 version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93857453250e3077bd71ff98b6a65ea6621a19bb0f559a85248955ac12c45a1a"
 dependencies = [
  "lock_api",
- "parking_lot_core 0.9.12",
-]
-
-[[package]]
-name = "parking_lot_core"
-version = "0.2.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4db1a8ccf734a7bce794cc19b3df06ed87ab2f3907036b693c68f56b4d4537fa"
-dependencies = [
- "libc",
- "rand 0.4.6",
- "smallvec 0.6.14",
- "winapi",
+ "parking_lot_core",
 ]
 
 [[package]]
@@ -1723,7 +1696,7 @@ dependencies = [
  "cfg-if 1.0.4",
  "libc",
  "redox_syscall 0.5.18",
- "smallvec 1.16.0",
+ "smallvec",
  "windows-link",
 ]
 
@@ -1958,19 +1931,6 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "552840b97013b1a26992c11eac34bdd778e464601a4c2054b5f0bff7c6761293"
-dependencies = [
- "fuchsia-cprng",
- "libc",
- "rand_core 0.3.2",
- "rdrand",
- "winapi",
-]
-
-[[package]]
-name = "rand"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7f5fa3a058cd35567ef9bfa5e75732bee0f9e4c55fa90477bef2dfcdbc4be80"
@@ -1989,21 +1949,6 @@ dependencies = [
  "ppv-lite86",
  "rand_core 0.5.1",
 ]
-
-[[package]]
-name = "rand_core"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96f815e01bbd9678b50d927f79aa1cf3ffdfdb1b9787317c1284dadb894ad0e8"
-dependencies = [
- "rand_core 0.4.3",
-]
-
-[[package]]
-name = "rand_core"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e5937858e6fd18cd595d558f90bb5de3b72ae23f9e3763af0e805949b04ef60"
 
 [[package]]
 name = "rand_core"
@@ -2047,15 +1992,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rdrand"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "678054eb77286b51581ba43620cc911abf02758c91f93f479767aed0f90458b2"
-dependencies = [
- "rand_core 0.3.2",
-]
-
-[[package]]
 name = "redox-initfs"
 version = "0.2.0"
 dependencies = [
@@ -2092,7 +2028,7 @@ source = "git+https://gitlab.redox-os.org/redox-os/redox-log.git#ac8cbc40a281879
 dependencies = [
  "chrono",
  "log",
- "smallvec 1.16.0",
+ "smallvec",
  "termion",
 ]
 
@@ -2469,15 +2405,6 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "smallvec"
-version = "0.6.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b97fcaeba89edba30f044a10c6a3cc39df9c3f17d7cd829dd1446cab35f890e0"
-dependencies = [
- "maybe-uninit",
-]
-
-[[package]]
-name = "smallvec"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9be42f50aa861c555654aa3a37f52f4b1074bacf4e48fe0ef7fa584e80f1f0f"
@@ -2691,7 +2618,7 @@ version = "2.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86a801b3cea342a06d468c8710662aa29e5e05e4f5c0d62f00bbb7f2ad7941c2"
 dependencies = [
- "rand 0.10.2",
+ "rand",
 ]
 
 [[package]]
@@ -2748,7 +2675,7 @@ dependencies = [
  "plain",
  "redox_syscall 0.9.5",
  "rehid",
- "smallvec 1.16.0",
+ "smallvec",
  "xhcid",
 ]
 
@@ -3206,7 +3133,7 @@ dependencies = [
  "scheme-utils",
  "serde",
  "serde_json",
- "smallvec 1.16.0",
+ "smallvec",
  "thiserror 2.0.20",
  "toml",
 ]
