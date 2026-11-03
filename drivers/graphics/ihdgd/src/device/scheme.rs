@@ -11,7 +11,7 @@ use super::Device;
 pub struct Connector {
     pub ddi_idx: usize,
     pub ddi_name: &'static str,
-    pub edid: Option<edid::EDID>,
+    pub edid: Option<piaf::ParsedEdid>,
 }
 
 impl KmsConnectorDriver for Connector {

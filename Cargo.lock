@@ -90,7 +90,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c982642fa9e8606056828ee9a8505737230110bb1099153c79efe865c59d12ba"
 dependencies = [
- "memchr 2.8.3",
+ "memchr",
 ]
 
 [[package]]
@@ -649,6 +649,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "display-types"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2a14d4076790bab27f37a48c0e8fb29993ec8254effcb930b9dab9df29040e2"
+dependencies = [
+ "bitflags 2.13.1",
+]
+
+[[package]]
 name = "drawbench"
 version = "0.1.0"
 dependencies = [
@@ -683,11 +692,11 @@ dependencies = [
  "common",
  "drm-fourcc",
  "drm-sys",
- "edid",
  "graphics-ipc",
  "inputd",
  "libredox 0.2.0",
  "log",
+ "piaf",
  "redox-ioctl",
  "redox-scheme",
  "redox_syscall 0.9.5",
@@ -759,15 +768,6 @@ dependencies = [
  "pcid",
  "redox_event",
  "redox_syscall 0.9.5",
-]
-
-[[package]]
-name = "edid"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24ce75530893d834dcfe3bb67ce0e7dec489484e7cb4423ca31618af4bab24fe"
-dependencies = [
- "nom",
 ]
 
 [[package]]
@@ -1022,7 +1022,7 @@ dependencies = [
  "futures-macro",
  "futures-sink",
  "futures-task",
- "memchr 2.8.3",
+ "memchr",
  "pin-project-lite",
  "slab",
 ]
@@ -1238,13 +1238,13 @@ dependencies = [
  "driver-graphics",
  "drm-fourcc",
  "drm-sys",
- "edid",
  "embedded-hal",
  "ihdgd_macros",
  "libredox 0.2.0",
  "log",
  "nb 1.1.0",
  "pcid",
+ "piaf",
  "range-alloc",
  "redox-scheme",
  "redox_event",
@@ -1503,15 +1503,6 @@ checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 
 [[package]]
 name = "memchr"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "148fab2e51b4f1cfc66da2a7c32981d1d3c083a803978268bb11fe4b86925e7a"
-dependencies = [
- "libc",
-]
-
-[[package]]
-name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
@@ -1578,15 +1569,6 @@ dependencies = [
  "redox_syscall 0.9.5",
  "scheme-utils",
  "smoltcp",
-]
-
-[[package]]
-name = "nom"
-version = "3.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05aec50c70fd288702bcd93284a8444607f3292dbdf2a30de5ea5dcdbe72287b"
-dependencies = [
- "memchr 1.0.2",
 ]
 
 [[package]]
@@ -1805,6 +1787,17 @@ dependencies = [
  "redox_syscall 0.9.5",
  "serde",
  "toml",
+]
+
+[[package]]
+name = "piaf"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d2b6cb88e26e5b76d7928a9a535ca9bee546d57b1fbf023bac1ac10f2d4758d"
+dependencies = [
+ "bitflags 2.13.1",
+ "display-types",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -2185,7 +2178,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f020237b6c8eed93db2e2cb53c00c60a8e1bc73da7d073199a1180401450218d"
 dependencies = [
  "aho-corasick",
- "memchr 2.8.3",
+ "memchr",
  "regex-automata",
  "regex-syntax",
 ]
@@ -2197,7 +2190,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad8553b9b26413251cbf30e620595c7a41b3887f03da04579c0e6b0d6a06b4b2"
 dependencies = [
  "aho-corasick",
- "memchr 2.8.3",
+ "memchr",
  "regex-syntax",
 ]
 
@@ -2415,7 +2408,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c841b55ecdae098c80dcae9cf767f6f8a0c2cdb3416bbef72181df4d0fe73f14"
 dependencies = [
  "itoa",
- "memchr 2.8.3",
+ "memchr",
  "serde",
  "serde_core",
  "zmij",
@@ -2959,7 +2952,7 @@ dependencies = [
  "bitflags 2.13.1",
  "cursor-icon",
  "log",
- "memchr 2.8.3",
+ "memchr",
 ]
 
 [[package]]
