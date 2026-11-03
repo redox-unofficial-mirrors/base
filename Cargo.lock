@@ -411,9 +411,9 @@ dependencies = [
 
 [[package]]
 name = "chashmap"
-version = "2.2.3"
+version = "2.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8dd97da62ab8f4186abb2bfd6a7c426a79e438ffe24f86991496af477171e72c"
+checksum = "b3314f092b1220acf4f790cd7d89217bba5a53dc52bca31d58581d0e925e78b2"
 dependencies = [
  "owning_ref",
  "parking_lot",
