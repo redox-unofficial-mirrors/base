@@ -180,7 +180,7 @@ impl<T: GraphicsAdapter> KmsConnector<T> {
         self.modes = caps
             .supported_modes
             .iter()
-            .map(|detailed_timing| modeinfo_for_detailed_timing(detailed_timing))
+            .filter_map(modeinfo_for_detailed_timing)
             .collect::<Vec<_>>();
 
         // First detailed timing descriptor indicates preferred mode.
@@ -190,9 +190,12 @@ impl<T: GraphicsAdapter> KmsConnector<T> {
     }
 }
 
-pub fn modeinfo_for_detailed_timing(timing: &VideoMode) -> drm_mode_modeinfo {
+pub fn modeinfo_for_detailed_timing(timing: &VideoMode) -> Option<drm_mode_modeinfo> {
     let hdisplay = timing.width;
-    let htotal = hdisplay + timing.h_blank.unwrap(); // TODO: error handling
+    let Some(hblank) = timing.h_blank else {
+        return None; // TODO: or fallback default?
+    };
+    let htotal = hdisplay + hblank;
     let hsync_start = hdisplay + timing.h_front_porch;
     let hsync_end = hsync_start + timing.h_sync_width;
     let vdisplay = timing.height;
@@ -200,7 +203,9 @@ pub fn modeinfo_for_detailed_timing(timing: &VideoMode) -> drm_mode_modeinfo {
     let vsync_start = vdisplay + timing.v_front_porch;
     let vsync_end = vsync_start + timing.v_sync_width;
 
-    let clock = timing.pixel_clock_khz.unwrap(); // TODO: error handling
+    let Some(clock) = timing.pixel_clock_khz else {
+        return None; // TODO: or fallback default?
+    };
     let vrefresh = (clock * 1000) / ((htotal as u32) * (vtotal as u32));
 
     let mut flags = 0;
@@ -254,7 +259,7 @@ pub fn modeinfo_for_detailed_timing(timing: &VideoMode) -> drm_mode_modeinfo {
         *to = from as c_char;
     }
 
-    modeinfo
+    Some(modeinfo)
 }
 
 pub fn modeinfo_for_size(width: u32, height: u32) -> drm_mode_modeinfo {
