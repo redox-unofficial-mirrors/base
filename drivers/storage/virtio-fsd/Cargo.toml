@@ -6,10 +6,10 @@ authors = ["MJ Pooladkhay <mj@pooladkhay.com>"]
 
 [dependencies]
 async-lock = "3.4"
-bitflags = "2.11"
-thiserror = "2.0"
-zerocopy = { version = "0.8", features = ["derive"] }
-futures = { version = "0.3.28", features = ["executor"] }
+bitflags.workspace = true
+thiserror.workspace = true
+zerocopy.workspace = true
+futures.workspace = true
 fuse-abi = { version = "0.2.0", features = ["linux", "zerocopy", "num_enum"] }
 
 daemon = { path = "../../../daemon" }
@@ -18,7 +18,7 @@ pcid = { path = "../../pcid" }
 common = { path = "../../common" }
 scheme-utils = { path = "../../../scheme-utils" }
 
-redox-path = "0.4.1"
+redox-path.workspace = true
 log.workspace = true
 libredox.workspace = true
 redox-scheme = { workspace = true, features = ["std"] }

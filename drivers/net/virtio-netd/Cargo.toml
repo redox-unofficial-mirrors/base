@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 log.workspace = true
 static_assertions.workspace = true
-futures = { version = "0.3.28", features = ["executor"] }
+futures.workspace = true
 
 virtio-core = { path = "../../virtio-core" }
 pcid = { path = "../../pcid" }

@@ -11,11 +11,11 @@ description = "RAM filesystem, which is useful for early logging"
 [dependencies]
 daemon = { path = "../daemon" }
 env_logger.workspace = true
-redox-path = "0.4.1"
+redox-path.workspace = true
 scheme-utils = { path = "../scheme-utils" }
 libredox = { workspace = true, features = ["call"] }
 indexmap = "2.5.0"
-zerocopy = { version = "0.8.55", features = ["derive"] }
+zerocopy.workspace = true
 log.workspace = true
 redox_syscall.workspace = true
 redox-scheme.workspace = true

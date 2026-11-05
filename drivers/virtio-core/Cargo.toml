@@ -12,7 +12,7 @@ redox_syscall.workspace = true
 libredox.workspace = true
 log.workspace = true
 thiserror.workspace = true
-futures = { version = "0.3.28", features = ["executor"] }
+futures.workspace = true
 crossbeam-queue = "0.3.8"
 
 redox_event.workspace = true
