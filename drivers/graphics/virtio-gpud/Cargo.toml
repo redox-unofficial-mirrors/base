@@ -8,7 +8,7 @@ authors = ["Anhad Singh <andypython@protonmail.com>"]
 [dependencies]
 log.workspace = true
 static_assertions.workspace = true
-futures = { version = "0.3.28", features = ["executor"] }
+futures.workspace = true
 anyhow.workspace = true
 
 common = { path = "../../common" }

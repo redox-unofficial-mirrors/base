@@ -92,6 +92,7 @@ drm-sys = "0.8.1"
 env_logger = "0.11"
 piaf = "0.6.0"
 fdt = "0.2.0-alpha3"
+futures = { version = "0.3", features = ["executor"] }
 libc = "0.2.181"
 log = "0.4"
 libredox = "0.2.0"
@@ -103,6 +104,7 @@ plain = "0.2.3"
 redox_event = "0.5.0"
 redox-ioctl = { git = "https://gitlab.redox-os.org/redox-os/relibc.git" }
 redox-log = { git = "https://gitlab.redox-os.org/redox-os/redox-log.git" }
+redox-path = "0.4.1"
 # redox-scheme = { version = "0.13.0", default-features = false }
 redox-scheme = { git = "https://gitlab.redox-os.org/redox-os/redox-scheme.git", default-features = false }
 redox_syscall = { version = "0.9.5",  features = ["std"] }
@@ -117,6 +119,7 @@ spin = "0.10"
 static_assertions = "1.1.0"
 thiserror = "2"
 toml = "1"
+zerocopy = { version = "0.8", features = ["derive"] }
 
 [workspace.lints.rust]
 missing_docs = "allow" #TODO: set to deny when all public functions are documented

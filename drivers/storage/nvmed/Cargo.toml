@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 bitflags.workspace = true
-futures = "0.3"
+futures.workspace = true
 libredox.workspace = true
 libc.workspace = true
 log.workspace = true
