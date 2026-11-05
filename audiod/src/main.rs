@@ -93,6 +93,8 @@ fn daemon(daemon: SchemeDaemon) -> anyhow::Result<()> {
     // Spawn a thread to mix and send audio data
     let inner_thread = scheme.inner.clone();
 
+    let _join_handle = thread::spawn(move || scheme_thread(inner_thread, pid, hw_file).unwrap());
+    /*TODO: fix crackling when using ring
     let _join_handle = match hw_file.openat("audio_shm", 0, 0) {
         Ok(shm_fd) => thread::spawn(move || uring_thread(inner_thread, pid, shm_fd).unwrap()),
         Err(_) => {
@@ -100,6 +102,7 @@ fn daemon(daemon: SchemeDaemon) -> anyhow::Result<()> {
             thread::spawn(move || scheme_thread(inner_thread, pid, hw_file).unwrap())
         }
     };
+    */
 
     let mut readiness = ReadinessBased::new(Box::new(socket), 16);
 
