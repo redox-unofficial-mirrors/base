@@ -544,7 +544,11 @@ impl<const N: usize> Xhci<N> {
 
         // Set enabled slots
         debug!("Setting enabled slots to {}.", max_slots);
-        self.op.get_mut().unwrap().config.write(u32::from(max_slots));
+        self.op
+            .get_mut()
+            .unwrap()
+            .config
+            .write(u32::from(max_slots));
         debug!(
             "Enabled Slots: {}",
             self.op.get_mut().unwrap().config.read() & 0xFF

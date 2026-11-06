@@ -34,7 +34,10 @@ impl<'a> SchemeSocket for UdpSocket<'a> {
         self.can_send()
     }
 
-    #[expect(unreachable_patterns, reason = "only proto-ipv4 feature enabled in smoltcp")]
+    #[expect(
+        unreachable_patterns,
+        reason = "only proto-ipv4 feature enabled in smoltcp"
+    )]
     fn can_recv(&mut self, data: &IpListenEndpoint) -> bool {
         loop {
             // If buffer is empty, we definitely can't recv
