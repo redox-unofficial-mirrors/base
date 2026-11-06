@@ -181,3 +181,4 @@ install-base: base $(SYSROOT)/bin/redoxfs
 	ln -sf /scheme/libc/stdin $(DESTDIR)/dev/stdin
 	ln -sf /scheme/libc/stdout $(DESTDIR)/dev/stdout
 	ln -sf /scheme/libc/stderr $(DESTDIR)/dev/stderr
+	ln -sf /scheme/tmp $(DESTDIR)/tmp
