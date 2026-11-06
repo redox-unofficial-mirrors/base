@@ -1,7 +1,7 @@
 use redox_log::{OutputBuilder, RedoxLogger};
 
 pub fn init_logger(process_name: &str) {
-    if let Err(_) = RedoxLogger::new()
+    if RedoxLogger::new()
         .with_output(
             OutputBuilder::stdout()
                 .with_ansi_escape_codes()
@@ -11,6 +11,7 @@ pub fn init_logger(process_name: &str) {
         )
         .with_process_name(process_name.into())
         .enable()
+        .is_err()
     {
         eprintln!("{process_name}: Failed to init logger")
     }

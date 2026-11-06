@@ -169,6 +169,7 @@ fn run(daemon: daemon::Daemon) -> Result<()> {
         .into_iter()
         .chain(event_queue.map(|r| r.map(|e| e.user_data)))
     {
+        #[expect(unused_must_use)]
         match event_res.map_err(|e| anyhow!("event result is error: {:?}", e))? {
             EventSource::Network => smolnetd.on_network_scheme_event(),
             EventSource::Time => smolnetd.on_time_event(),

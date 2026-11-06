@@ -8,7 +8,6 @@ use std::str::FromStr;
 use libredox::{flag, Fd};
 use redox_scheme::scheme::{IntoTag, Op, SchemeResponse, SchemeState, SchemeSync};
 use redox_scheme::{CallerCtx, RequestKind, Response, SignalBehavior, Socket};
-use smoltcp;
 use smoltcp::iface::{Config, Interface as SmoltcpInterface};
 use smoltcp::phy::Tracer;
 use smoltcp::socket::AnySocket;
@@ -16,6 +15,7 @@ use smoltcp::time::{Duration, Instant};
 use smoltcp::wire::{
     EthernetAddress, HardwareAddress, IpAddress, IpCidr, IpListenEndpoint, Ipv4Address,
 };
+use smoltcp::{self};
 use syscall::data::TimeSpec;
 use syscall::{self, Error as SyscallError};
 
@@ -69,11 +69,13 @@ pub struct Smolnetd {
 }
 
 impl Smolnetd {
+    #[expect(dead_code)]
     pub const MAX_PACKET_SIZE: usize = 2048;
     pub const SOCKET_BUFFER_SIZE: usize = 128; //packets
     pub const MIN_CHECK_TIMEOUT: Duration = Duration::from_millis(10);
     pub const MAX_CHECK_TIMEOUT: Duration = Duration::from_millis(500);
 
+    #[expect(clippy::too_many_arguments, reason = "all needed")]
     pub fn new(
         network_file: Fd,
         hardware_addr: EthernetAddress,
@@ -329,7 +331,7 @@ where
         Ok(Self {
             scheme: SocketScheme::<SocketT>::new(name, iface, route_table, socket_set, scheme_file)
                 .map_err(|e| {
-                    Error::from_syscall_error(e, &format!("failed to initialize {} scheme", name))
+                    Error::from_syscall_error(e, format!("failed to initialize {name} scheme"))
                 })?,
             state: SchemeState::new(),
             wait_queue: Vec::new(),
@@ -366,9 +368,7 @@ where
                     self.scheme
                         .scheme_file
                         .write_response(resp, SignalBehavior::Restart)
-                        .map_err(|e| {
-                            Error::from_syscall_error(e.into(), "failed to write response")
-                        })?;
+                        .map_err(|e| Error::from_syscall_error(e, "failed to write response"))?;
                     continue;
                 }
                 RequestKind::RecvFd(req) => {
@@ -376,9 +376,7 @@ where
                     self.scheme
                         .scheme_file
                         .write_response(resp, SignalBehavior::Restart)
-                        .map_err(|e| {
-                            Error::from_syscall_error(e.into(), "failed to write response")
-                        })?;
+                        .map_err(|e| Error::from_syscall_error(e, "failed to write response"))?;
                     continue;
                 }
                 RequestKind::OnClose { id } => {
@@ -412,9 +410,7 @@ where
                             Response::err(syscall::EOPNOTSUPP, req),
                             SignalBehavior::Restart,
                         )
-                        .map_err(|e| {
-                            Error::from_syscall_error(e.into(), "failed to write response")
-                        })?;
+                        .map_err(|e| Error::from_syscall_error(e, "failed to write response"))?;
                     continue;
                 }
             };
@@ -443,7 +439,7 @@ where
                                     SignalBehavior::Restart,
                                 )
                                 .map_err(|e| {
-                                    Error::from_syscall_error(e.into(), "failed to write response")
+                                    Error::from_syscall_error(e, "failed to write response")
                                 })?;
                             return Err(Error::from_syscall_error(
                                 err,
@@ -463,7 +459,7 @@ where
                 .scheme
                 .scheme_file
                 .write_response(resp, SignalBehavior::Restart)
-                .map_err(|e| Error::from_syscall_error(e.into(), "failed to write response"))?;
+                .map_err(|e| Error::from_syscall_error(e, "failed to write response"))?;
         };
         Ok(result)
     }
@@ -486,7 +482,7 @@ where
             };
             if events > 0 {
                 post_fevent(&scheme.scheme_file, fd, events)
-                    .map_err(|e| Error::from_syscall_error(e.into(), "failed to post fevent"))?;
+                    .map_err(|e| Error::from_syscall_error(e, "failed to post fevent"))?;
             }
         }
         // Wake up blocking queue
@@ -513,7 +509,7 @@ where
                                 SignalBehavior::Restart,
                             )
                             .map_err(|e| {
-                                Error::from_syscall_error(e.into(), "failed to write response")
+                                Error::from_syscall_error(e, "failed to write response")
                             })?;
                         continue;
                     }
@@ -521,7 +517,7 @@ where
                         Some(until)
                             if (until.tv_sec < cur_time.tv_sec
                                 || (until.tv_sec == cur_time.tv_sec
-                                    && i64::from(until.tv_nsec) < i64::from(cur_time.tv_nsec))) =>
+                                    && i64::from(until.tv_nsec) < cur_time.tv_nsec)) =>
                         {
                             let (op, _) = queue.swap_remove(i).packet;
                             let _ = scheme
@@ -531,7 +527,7 @@ where
                                     SignalBehavior::Restart,
                                 )
                                 .map_err(|e| {
-                                    Error::from_syscall_error(e.into(), "failed to write response")
+                                    Error::from_syscall_error(e, "failed to write response")
                                 })?;
                         }
                         _ => {
@@ -544,18 +540,14 @@ where
                     let _ = scheme
                         .scheme_file
                         .write_response(Response::new(r, op), SignalBehavior::Restart)
-                        .map_err(|e| {
-                            Error::from_syscall_error(e.into(), "failed to write response")
-                        })?;
+                        .map_err(|e| Error::from_syscall_error(e, "failed to write response"))?;
                 }
                 SchemeResponse::Opened(o) => {
                     let (op, _) = queue.swap_remove(i).packet;
                     let _ = scheme
                         .scheme_file
                         .write_response(Response::open_dup_like(o, op), SignalBehavior::Restart)
-                        .map_err(|e| {
-                            Error::from_syscall_error(e.into(), "failed to write response")
-                        })?;
+                        .map_err(|e| Error::from_syscall_error(e, "failed to write response"))?;
                 }
                 SchemeResponse::RegularAndNotifyOnDetach(status) => {
                     let (op, _) = queue.swap_remove(i).packet;
@@ -565,9 +557,7 @@ where
                             Response::new_notify_on_detach(status, op),
                             SignalBehavior::Restart,
                         )
-                        .map_err(|e| {
-                            Error::from_syscall_error(e.into(), "failed to write response")
-                        })?;
+                        .map_err(|e| Error::from_syscall_error(e, "failed to write response"))?;
                 }
             }
         }

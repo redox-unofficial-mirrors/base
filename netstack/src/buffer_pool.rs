@@ -1,23 +1,26 @@
 use std::cell::RefCell;
-use std::mem::{replace, swap};
+use std::mem::{swap, take};
 use std::ops::{Deref, DerefMut, Drop};
 use std::rc::Rc;
 
 type BufferStack = Rc<RefCell<Vec<Vec<u8>>>>;
 
+#[expect(dead_code)]
 pub struct Buffer {
     buffer: Vec<u8>,
     stack: BufferStack,
 }
 
 impl Buffer {
+    #[expect(dead_code)]
     pub fn resize(&mut self, new_len: usize) {
         self.buffer.resize(new_len, 0u8);
     }
 
+    #[expect(dead_code)]
     pub fn move_out(&mut self) -> Buffer {
         Buffer {
-            buffer: replace(&mut self.buffer, vec![]),
+            buffer: take(&mut self.buffer),
             stack: Rc::clone(&self.stack),
         }
     }
@@ -62,12 +65,14 @@ impl Drop for Buffer {
     }
 }
 
+#[expect(dead_code)]
 pub struct BufferPool {
     buffers_size: usize,
     stack: BufferStack,
 }
 
 impl BufferPool {
+    #[expect(dead_code)]
     pub fn new(buffers_size: usize) -> BufferPool {
         BufferPool {
             buffers_size,
@@ -75,6 +80,7 @@ impl BufferPool {
         }
     }
 
+    #[expect(dead_code)]
     pub fn get_buffer(&mut self) -> Buffer {
         let buffer = match self.stack.borrow_mut().pop() {
             None => vec![0u8; self.buffers_size],

@@ -106,7 +106,7 @@ impl<'a> SchemeSocket for TcpSocket<'a> {
                     let route_table = context.route_table.borrow();
                     let addr = route_table
                         .lookup_src_addr(&remote_endpoint.addr.expect("Checked in is_specified"));
-                    if matches!(addr, None) {
+                    if addr.is_none() {
                         error!("Opening a TCP connection with a probably invalid source IP as no route have been found for destination: {}", remote_endpoint);
                     }
                     addr
@@ -160,7 +160,7 @@ impl<'a> SchemeSocket for TcpSocket<'a> {
         buf: &[u8],
     ) -> SyscallResult<usize> {
         if !file.write_enabled {
-            return Err(SyscallError::new(syscall::EPIPE));
+            Err(SyscallError::new(syscall::EPIPE))
         } else if !self.is_active() {
             Err(SyscallError::new(syscall::ENOTCONN))
         } else if self.can_send() {
@@ -347,7 +347,7 @@ impl<'a> SchemeSocket for TcpSocket<'a> {
             };
 
             how[..usize_length].copy_from_slice(&address.len().to_le_bytes());
-            how[usize_length..address.len() + usize_length].copy_from_slice(&address.as_bytes());
+            how[usize_length..address.len() + usize_length].copy_from_slice(address.as_bytes());
             let payload_length = self
                 .recv_slice(
                     &mut how[address.len() + 2 * usize_length

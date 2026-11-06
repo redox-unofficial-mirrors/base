@@ -94,7 +94,7 @@ impl EthernetLink {
 
         f(frame.payload_mut());
 
-        if let Err(_) = self.network_file.write_all(&self.output_buffer) {
+        if self.network_file.write_all(&self.output_buffer).is_err() {
             error!(
                 "Dropped outboud packet on {} (failed to write to network file)",
                 self.name
@@ -117,6 +117,7 @@ impl EthernetLink {
             return;
         };
 
+        #[expect(clippy::single_match, reason = "non-exhaustive enum")]
         match repr {
             ArpRepr::EthernetIpv4 {
                 operation,
@@ -342,11 +343,9 @@ impl LinkDevice for EthernetLink {
     }
 
     fn recv(&mut self, now: Instant) -> Option<&[u8]> {
-        let Some(hardware_address) = self.hardware_address else {
-            return None;
-        };
+        let hardware_address = self.hardware_address?;
 
-        let mut input_buffer = std::mem::replace(&mut self.input_buffer, Vec::new());
+        let mut input_buffer = std::mem::take(&mut self.input_buffer);
         loop {
             if let Err(e) = self.network_file.read(&mut input_buffer) {
                 if e.kind() != ErrorKind::WouldBlock {
