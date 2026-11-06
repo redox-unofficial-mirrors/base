@@ -517,7 +517,7 @@ where
                         Some(until)
                             if (until.tv_sec < cur_time.tv_sec
                                 || (until.tv_sec == cur_time.tv_sec
-                                    && i64::from(until.tv_nsec) < cur_time.tv_nsec)) =>
+                                    && i64::from(until.tv_nsec) < cur_time.tv_nsec.into())) =>
                         {
                             let (op, _) = queue.swap_remove(i).packet;
                             let _ = scheme
