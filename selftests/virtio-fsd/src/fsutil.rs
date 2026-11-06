@@ -700,7 +700,7 @@ fn select_ready(file: &File, read: bool, write: bool, timeout_ms: i32) -> io::Re
     }
     let mut tv = libc::timeval {
         tv_sec: (timeout_ms / 1000) as libc::time_t,
-        tv_usec: ((timeout_ms % 1000) * 1000) as libc::suseconds_t,
+        tv_usec: libc::suseconds_t::from((timeout_ms % 1000) * 1000),
     };
     let n = unsafe {
         libc::select(

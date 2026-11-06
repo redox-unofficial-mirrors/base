@@ -743,13 +743,13 @@ impl Transport for StandardTransport<'_> {
             let size = size as usize;
 
             if size == size_of::<u8>() {
-                ptr.cast::<u8>().read() as u64
+                u64::from(ptr.cast::<u8>().read())
             } else if size == size_of::<u16>() {
-                ptr.cast::<u16>().read() as u64
+                u64::from(ptr.cast::<u16>().read())
             } else if size == size_of::<u32>() {
-                ptr.cast::<u32>().read() as u64
+                u64::from(ptr.cast::<u32>().read())
             } else if size == size_of::<u64>() {
-                ptr.cast::<u64>().read() as u64
+                ptr.cast::<u64>().read()
             } else {
                 unreachable!()
             }
@@ -846,7 +846,7 @@ impl Transport for StandardTransport<'_> {
         common.queue_enable.set(1);
 
         let notification_bell = unsafe {
-            let offset = self.notify_mul * queue_notify_idx as u32;
+            let offset = self.notify_mul * u32::from(queue_notify_idx);
             &mut *(self.notify.add(offset as usize) as *mut AtomicU16)
         };
 

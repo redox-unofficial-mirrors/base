@@ -64,7 +64,7 @@ fn daemon(daemon: daemon::Daemon) -> ! {
         .collect::<HashMap<String, String>>();
     for i in 1..1024 {
         match bootloader_env.get(&format!("FRAMEBUFFER{}", i)) {
-            Some(var) => match unsafe { FrameBuffer::parse(&var) } {
+            Some(var) => match unsafe { FrameBuffer::parse(var) } {
                 Some(fb) => {
                     println!(
                         "vesad: framebuffer {}: {}x{} stride {} at 0x{:X}",

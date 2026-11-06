@@ -599,7 +599,7 @@ impl<const N: usize> Xhci<N> {
             let mut command_ring = self.cmd.lock().unwrap();
             let (cmd_index, cycle) = (command_ring.next_index(), command_ring.cycle);
 
-            debug!("Sending command with cycle bit {}", cycle as u8);
+            debug!("Sending command with cycle bit {}", u8::from(cycle));
 
             {
                 let command_trb = &mut command_ring.trbs[cmd_index];

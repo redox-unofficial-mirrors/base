@@ -45,7 +45,7 @@ pub unsafe fn cmd(cmd: u32, arg: u32) -> (u32, u32, u32, u32) {
         inout("eax") MAGIC => a,
         inout("r9") arg => b,
         inout("ecx") cmd => c,
-        inout("edx") PORT as u32 => d,
+        inout("edx") u32::from(PORT) => d,
         out("rsi") _,
         out("rdi") _,
     );
@@ -57,7 +57,7 @@ pub unsafe fn cmd(cmd: u32, arg: u32) -> (u32, u32, u32, u32) {
         inout("eax") MAGIC => a,
         inout("edi") arg => b,
         inout("ecx") cmd => c,
-        inout("edx") PORT as u32 => d,
+        inout("edx") u32::from(PORT) => d,
     );
 
     (a, b, c, d)
@@ -103,5 +103,5 @@ pub fn enable(relative: bool) -> bool {
         }
     }
 
-    return true;
+    true
 }

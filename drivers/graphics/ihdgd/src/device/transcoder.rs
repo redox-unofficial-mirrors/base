@@ -131,14 +131,14 @@ impl Transcoder {
     }
 
     pub fn modeset(&mut self, pipe: &mut Pipe, mode: &drm_mode_modeinfo) {
-        let hactive = (mode.hdisplay - 1) as u32;
-        let htotal = (mode.htotal - 1) as u32;
-        let hsync_start = (mode.hsync_start - 1) as u32;
-        let hsync_end = (mode.hsync_end - 1) as u32;
-        let vactive = (mode.vdisplay - 1) as u32;
-        let vtotal = (mode.vtotal - 1) as u32;
-        let vsync_start = (mode.vsync_start - 1) as u32;
-        let vsync_end = (mode.vsync_end - 1) as u32;
+        let hactive = u32::from(mode.hdisplay - 1);
+        let htotal = u32::from(mode.htotal - 1);
+        let hsync_start = u32::from(mode.hsync_start - 1);
+        let hsync_end = u32::from(mode.hsync_end - 1);
+        let vactive = u32::from(mode.vdisplay - 1);
+        let vtotal = u32::from(mode.vtotal - 1);
+        let vsync_start = u32::from(mode.vsync_start - 1);
+        let vsync_end = u32::from(mode.vsync_end - 1);
 
         // Configure horizontal sync
         self.htotal.write(hactive | (htotal << 16));

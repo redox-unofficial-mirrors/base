@@ -119,7 +119,7 @@ impl Disk for NbdDisk {
         self.request(
             0,
             NBD_CMD_READ,
-            block * SECTOR_SIZE as u64,
+            block * u64::from(SECTOR_SIZE),
             buffer.len() as u32,
             &[],
             buffer,
@@ -135,7 +135,7 @@ impl Disk for NbdDisk {
         self.request(
             0,
             NBD_CMD_WRITE,
-            block * SECTOR_SIZE as u64,
+            block * u64::from(SECTOR_SIZE),
             buffer.len() as u32,
             buffer,
             &mut [],

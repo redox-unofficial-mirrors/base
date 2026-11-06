@@ -1,5 +1,4 @@
 use std::convert::TryInto;
-use std::mem;
 
 use common::dma::Dma;
 use common::io::{Io, Mmio, ReadOnly};
@@ -137,7 +136,7 @@ impl NetworkAdapter for Rtl8139 {
 
     fn read_packet(&mut self, buf: &mut [u8]) -> Result<Option<usize>> {
         if !self.regs.cr.readf(CR_BUFE) {
-            let rxsts = (self.rx(0) as u16) | (self.rx(1) as u16) << 8;
+            let rxsts = u16::from(self.rx(0)) | u16::from(self.rx(1)) << 8;
 
             let size_with_crc = (self.rx(2) as usize) | (self.rx(3) as usize) << 8;
 
@@ -239,7 +238,7 @@ impl Rtl8139 {
 
     pub fn next_read(&self) -> usize {
         if !self.regs.cr.readf(CR_BUFE) {
-            let rxsts = (self.rx(0) as u16) | (self.rx(1) as u16) << 8;
+            let rxsts = u16::from(self.rx(0)) | u16::from(self.rx(1)) << 8;
 
             let size_with_crc = (self.rx(2) as usize) | (self.rx(3) as usize) << 8;
 

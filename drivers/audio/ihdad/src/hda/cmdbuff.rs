@@ -205,7 +205,7 @@ impl Corb {
         }
         let write_pos: usize = ((self.regs.corbwp.read() as usize & 0xFF) + 1) % self.corb_count;
         unsafe {
-            *self.corb_base.offset(write_pos as isize) = cmd;
+            *self.corb_base.add(write_pos) = cmd;
         }
 
         self.regs.corbwp.write(write_pos as u16);
@@ -385,8 +385,8 @@ impl ImmediateCommand {
 
         // read the result register twice, total of 8 bytes
         // highest 4 will most likely be zeros (so I've heard)
-        let mut res: u64 = self.regs.irii.read() as u64;
-        res |= (self.regs.irii.read() as u64) << 32;
+        let mut res: u64 = u64::from(self.regs.irii.read());
+        res |= u64::from(self.regs.irii.read()) << 32;
 
         // clear the bit so we know when the next response comes
         self.regs.ics.writef(IRV, false);
@@ -453,19 +453,19 @@ impl CommandBuffer {
     pub fn cmd12(&mut self, addr: WidgetAddr, command: u32, data: u8) -> Result<u64> {
         let mut ncmd: u32 = 0;
 
-        ncmd |= (addr.0 as u32 & 0x00F) << 28;
-        ncmd |= (addr.1 as u32 & 0x0FF) << 20;
+        ncmd |= (u32::from(addr.0) & 0x00F) << 28;
+        ncmd |= (u32::from(addr.1) & 0x0FF) << 20;
         ncmd |= (command & 0xFFF) << 8;
-        ncmd |= (data as u32 & 0x0FF) << 0;
+        ncmd |= (u32::from(data) & 0x0FF) << 0;
         self.cmd(ncmd)
     }
     pub fn cmd4(&mut self, addr: WidgetAddr, command: u32, data: u16) -> Result<u64> {
         let mut ncmd: u32 = 0;
 
-        ncmd |= (addr.0 as u32 & 0x000F) << 28;
-        ncmd |= (addr.1 as u32 & 0x00FF) << 20;
+        ncmd |= (u32::from(addr.0) & 0x000F) << 28;
+        ncmd |= (u32::from(addr.1) & 0x00FF) << 20;
         ncmd |= (command & 0x000F) << 16;
-        ncmd |= (data as u32 & 0xFFFF) << 0;
+        ncmd |= (u32::from(data) & 0xFFFF) << 0;
         self.cmd(ncmd)
     }
 

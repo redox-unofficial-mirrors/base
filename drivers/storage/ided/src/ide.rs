@@ -442,10 +442,10 @@ impl Disk for AtaDisk {
 
                     for i in 0..128 {
                         chan.data32.write(
-                            ((chunk[sector * 512 + i * 4 + 0] as u32) << 0)
-                                | ((chunk[sector * 512 + i * 4 + 1] as u32) << 8)
-                                | ((chunk[sector * 512 + i * 4 + 2] as u32) << 16)
-                                | ((chunk[sector * 512 + i * 4 + 3] as u32) << 24),
+                            (u32::from(chunk[sector * 512 + i * 4 + 0]) << 0)
+                                | (u32::from(chunk[sector * 512 + i * 4 + 1]) << 8)
+                                | (u32::from(chunk[sector * 512 + i * 4 + 2]) << 16)
+                                | (u32::from(chunk[sector * 512 + i * 4 + 3]) << 24),
                         );
                     }
                 }

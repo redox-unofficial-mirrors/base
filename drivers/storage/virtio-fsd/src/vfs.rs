@@ -627,7 +627,7 @@ impl<T: FuseTransporter> Vfs<T> {
                 parent: NodeId::ROOT,
                 attr: fuse_attr {
                     ino: NodeId::ROOT.into(),
-                    mode: MODE_DIR as u32,
+                    mode: u32::from(MODE_DIR),
                     ..fuse_attr::default()
                 },
                 attr_expiry: Instant::now(),
@@ -1299,13 +1299,13 @@ impl<T: FuseTransporter> Vfs<T> {
             let type_bits = g
                 .inodes
                 .get(&nodeid)
-                .map(|i| i.attr.mode & MODE_TYPE as u32)
+                .map(|i| i.attr.mode & u32::from(MODE_TYPE))
                 .unwrap_or(0);
             (nodeid, fh, type_bits)
         };
 
         let mut fuse_in = fuse_setattr_in {
-            mode: (new_mode as u32 & 0o7777) | type_bits,
+            mode: (u32::from(new_mode) & 0o7777) | type_bits,
             ..Default::default()
         };
         fuse_in.valid = FATTR_MODE;
@@ -2072,7 +2072,7 @@ fn fuse_expiry(now: Instant, sec: u64, nsec: u32) -> Instant {
     const NS_PER_SEC: u32 = 1_000_000_000;
     let ttl = Duration::new(sec, nsec.min(NS_PER_SEC - 1));
     now.checked_add(ttl)
-        .or_else(|| now.checked_add(Duration::from_secs(u32::MAX as u64)))
+        .or_else(|| now.checked_add(Duration::from_secs(u64::from(u32::MAX))))
         .unwrap_or(now)
 }
 

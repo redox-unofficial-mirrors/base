@@ -63,7 +63,7 @@ impl<'a> Transactional for GmbusPinPair<'a> {
         self.regs[1].write(0);
 
         // Set pin pair, enabling interface
-        self.regs[0].write(self.pin_pair as u32);
+        self.regs[0].write(u32::from(self.pin_pair));
 
         for op in ops_iter {
             // Start operation
@@ -80,8 +80,8 @@ impl<'a> Transactional for GmbusPinPair<'a> {
                     | GMBUS1_CYCLE_INDEX
                     | GMBUS1_CYCLE_WAIT
                     | (size << GMBUS1_SIZE_SHIFT)
-                    | (index as u32) << GMBUS1_INDEX_SHIFT
-                    | (addr8 as u32),
+                    | u32::from(index) << GMBUS1_INDEX_SHIFT
+                    | u32::from(addr8),
             );
 
             // Perform transaction

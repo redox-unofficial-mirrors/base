@@ -285,7 +285,7 @@ impl<const N: usize> IrqReactor<N> {
             "Found event TRB at index {} with type {} and cycle bit {}: {:?}",
             event_trb_index,
             event_trb.trb_type(),
-            event_trb.cycle() as u8,
+            u8::from(event_trb.cycle()),
             event_trb
         );
 

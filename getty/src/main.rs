@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use libc::{EAGAIN, O_NOCTTY, O_NONBLOCK, grantpt, ptsname, unlockpt};
 
-const _MAN_PAGE: &'static str = /* @MANSTART{getty} */
+const _MAN_PAGE: &str = /* @MANSTART{getty} */
     r#"
 NAME
     getty - set terminal mode
@@ -43,7 +43,7 @@ const DEFAULT_COLS: u16 = 80;
 const DEFAULT_LINES: u16 = 30;
 
 /// Print error message to standard error, and exit with code, _1_.
-fn fail<'a>(s: &'a str, stderr: &mut io::Stderr) -> ! {
+fn fail(s: &str, stderr: &mut io::Stderr) -> ! {
     let mut stderr = stderr.lock();
 
     let _ = stderr.write(b"error: ");
@@ -337,7 +337,7 @@ pub fn main() {
         .read(true)
         .write(true)
         .custom_flags(O_NONBLOCK)
-        .open(&vt_path)
+        .open(vt_path)
     {
         Ok(tty) => tty,
         Err(err) => fail(

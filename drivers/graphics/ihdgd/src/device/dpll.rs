@@ -135,7 +135,7 @@ impl Dpll {
         }
 
         //TODO: this symbol frequency is only valid for RGB 8 bits per color
-        let symbol_freq = (mode.clock as u64) * KHZ;
+        let symbol_freq = u64::from(mode.clock) * KHZ;
         let pll_freq = symbol_freq * 5;
 
         #[derive(Debug)]

@@ -34,6 +34,7 @@ impl<'a> SchemeSocket for UdpSocket<'a> {
         self.can_send()
     }
 
+    #[expect(unreachable_patterns, reason = "only proto-ipv4 feature enabled in smoltcp")]
     fn can_recv(&mut self, data: &IpListenEndpoint) -> bool {
         loop {
             // If buffer is empty, we definitely can't recv
@@ -50,7 +51,7 @@ impl<'a> SchemeSocket for UdpSocket<'a> {
             match self.peek() {
                 Ok((_, meta)) => {
                     let source = meta.endpoint;
-                    let connected_addr = data.addr.unwrap(); // Safe because is_specified() checked it
+                    let connected_addr = data.addr.expect("is_specified() checked");
 
                     // Allow Broadcast special case (DHCP)
                     let is_broadcast = match connected_addr {

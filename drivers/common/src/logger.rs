@@ -98,7 +98,7 @@ fn read_bootloader_log_level_env(category: &str, subcategory: &str) -> Option<lo
     for log_env_key in log_env_keys {
         let log_env_key = log_env_key.as_bytes();
         if let Some(log_env) = envs.iter().find_map(|var| var.strip_prefix(log_env_key)) {
-            if let Ok(Ok(log_level)) = str::from_utf8(&log_env).map(log::LevelFilter::from_str) {
+            if let Ok(Ok(log_level)) = str::from_utf8(log_env).map(log::LevelFilter::from_str) {
                 return Some(log_level);
             }
         }

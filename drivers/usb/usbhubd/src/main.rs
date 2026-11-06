@@ -9,7 +9,7 @@ fn main() {
     common::init();
     let mut args = env::args().skip(1);
 
-    const USAGE: &'static str = "usbhubd <scheme> <port> <interface>";
+    const USAGE: &str = "usbhubd <scheme> <port> <interface>";
 
     let scheme = args.next().expect(USAGE);
     let port_id = args
@@ -168,7 +168,7 @@ fn main() {
                         PortReqRecipient::Other,
                         usb::SetupReq::GetStatus as u8,
                         0,
-                        port as u16,
+                        u16::from(port),
                         DeviceReqData::In(unsafe { plain::as_mut_bytes(&mut port_sts) }),
                     )
                     .expect("Failed to retrieve port status");
@@ -181,7 +181,7 @@ fn main() {
                         PortReqRecipient::Other,
                         usb::SetupReq::GetStatus as u8,
                         0,
-                        port as u16,
+                        u16::from(port),
                         DeviceReqData::In(unsafe { plain::as_mut_bytes(&mut port_sts) }),
                     )
                     .expect("Failed to retrieve port status");
@@ -201,7 +201,7 @@ fn main() {
                         PortReqRecipient::Other,
                         usb::SetupReq::SetFeature as u8,
                         usb::HubPortFeature::PortPower as u16,
-                        port as u16,
+                        u16::from(port),
                         DeviceReqData::NoData,
                     )
                     .expect("Failed to set port power");
@@ -230,7 +230,7 @@ fn main() {
                         PortReqRecipient::Other,
                         usb::SetupReq::SetFeature as u8,
                         usb::HubPortFeature::PortReset as u16,
-                        port as u16,
+                        u16::from(port),
                         DeviceReqData::NoData,
                     )
                     .expect("Failed to set port enable");

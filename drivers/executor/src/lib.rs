@@ -284,8 +284,7 @@ impl<Hw: Hardware> LocalExecutor<Hw> {
             }
         }
 
-        let o = retval.borrow_mut().take().unwrap();
-        o
+        retval.borrow_mut().take().unwrap()
     }
     fn react(&self) {
         let event = self.queue.next_event().expect("failed to get next event");

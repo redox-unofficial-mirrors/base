@@ -11,3 +11,6 @@ libredox = { version = "0.1.21", features = ["call", "std"] }
 libc = "0.2.181"
 clap = { version = "4", features = ["derive"] }
 redox_syscall = "0.9.5"
+
+[lints]
+workspace = true

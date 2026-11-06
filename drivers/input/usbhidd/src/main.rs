@@ -193,7 +193,7 @@ fn send_gamepad_button(display: &mut ProducerHandle, button: u16, pressed: bool)
 fn main() -> Result<()> {
     let mut args = env::args().skip(1);
 
-    const USAGE: &'static str = "usbhidd <scheme> <port> <interface>";
+    const USAGE: &str = "usbhidd <scheme> <port> <interface>";
 
     let scheme = args.next().expect(USAGE);
     let port = args
@@ -322,7 +322,7 @@ fn main() -> Result<()> {
 
     //TODO: dynamically create good values, fix xhcid so it does not block on each request
     // This sets all reports to a duration of 4ms
-    if let Err(err) = reqs::set_idle(&handle, 1, 0, interface_num as u16) {
+    if let Err(err) = reqs::set_idle(&handle, 1, 0, u16::from(interface_num)) {
         log::warn!("failed to set idle: {}", err);
     }
 
@@ -336,7 +336,7 @@ fn main() -> Result<()> {
                 REPORT_DESC_TY,
                 0,
                 //TODO: should this be an index into interface_descs?
-                interface_num as u16,
+                u16::from(interface_num),
                 &mut report_desc_bytes,
             )
             .context("Failed to retrieve report descriptor")?;
@@ -444,7 +444,7 @@ fn main() -> Result<()> {
                 report_ty,
                 report_id,
                 //TODO: should this be an index into interface_descs?
-                interface_num as u16,
+                u16::from(interface_num),
                 &mut report_buffer,
             )
             .context("failed to get report")?;

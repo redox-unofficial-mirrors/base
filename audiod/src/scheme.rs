@@ -42,8 +42,8 @@ impl AudioSchemeInner {
                     let mut i = 0;
                     while i < mix_buffer.len() {
                         if let Some(sample) = buffer.pop_front() {
-                            let left = (sample.0 as f32 * volume_factor) as i16;
-                            let right = (sample.1 as f32 * volume_factor) as i16;
+                            let left = (f32::from(sample.0) * volume_factor) as i16;
+                            let right = (f32::from(sample.1) * volume_factor) as i16;
                             mix_buffer[i].0 = mix_buffer[i].0.saturating_add(left);
                             mix_buffer[i].1 = mix_buffer[i].1.saturating_add(right);
                         } else {
@@ -158,8 +158,8 @@ impl SchemeSync for AudioScheme {
                     let mut i = 0;
                     while i + 4 <= buf.len() {
                         buffer.push_back((
-                            (buf[i] as i16) | ((buf[i + 1] as i16) << 8),
-                            (buf[i + 2] as i16) | ((buf[i + 3] as i16) << 8),
+                            i16::from(buf[i]) | (i16::from(buf[i + 1]) << 8),
+                            i16::from(buf[i + 2]) | (i16::from(buf[i + 3]) << 8),
                         ));
 
                         i += 4;

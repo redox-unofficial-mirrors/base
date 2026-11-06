@@ -86,7 +86,7 @@ impl MsixInfo {
 
         // Ensure that the table and PBA are within the BAR.
 
-        if !(0..table_bar_size as u64).contains(&(table_offset as u64 + table_min_length as u64)) {
+        if !(0..table_bar_size as u64).contains(&(table_offset as u64 + u64::from(table_min_length))) {
             panic!(
                 "Table {:#x}:{:#x} outside of BAR with length {:#x}",
                 table_offset,
@@ -95,7 +95,7 @@ impl MsixInfo {
             );
         }
 
-        if !(0..pba_bar_size as u64).contains(&(pba_offset as u64 + pba_min_length as u64)) {
+        if !(0..pba_bar_size as u64).contains(&(pba_offset as u64 + u64::from(pba_min_length))) {
             panic!(
                 "PBA {:#x}:{:#x} outside of BAR with length {:#x}",
                 pba_offset,

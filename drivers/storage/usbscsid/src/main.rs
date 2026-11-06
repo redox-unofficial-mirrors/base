@@ -17,7 +17,7 @@ fn main() {
 fn daemon(daemon: daemon::Daemon) -> ! {
     let mut args = env::args().skip(1);
 
-    const USAGE: &'static str = "usbscsid <scheme> <port> <protocol>";
+    const USAGE: &str = "usbscsid <scheme> <port> <protocol>";
 
     let scheme = args.next().expect(USAGE);
     let port = args

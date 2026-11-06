@@ -18,7 +18,7 @@ impl VendorSpecificCapability {
         // );
         let data = if length > 0 {
             assert!(
-                length > 3 && length % 4 == 0,
+                length > 3 && length.is_multiple_of(4),
                 "invalid range length: {}",
                 length
             );

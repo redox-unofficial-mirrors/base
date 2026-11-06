@@ -27,7 +27,7 @@ pub fn config_for_dirs(dirs: &[impl AsRef<Path>]) -> Result<Vec<PathBuf>, io::Er
             continue;
         }
 
-        for entry_res in fs::read_dir(&dir)? {
+        for entry_res in fs::read_dir(dir)? {
             // This intentionally overwrites older entries with
             // the same filename to allow overriding entries in
             // one search dir with those in a later search dir.

@@ -60,7 +60,7 @@ fn io_golden_buffer(ctx: &TestCtx) -> Outcome {
                 );
             }
             _ => {
-                if rng.next() % 2 == 0 {
+                if rng.next().is_multiple_of(2) {
                     check_ok!(file.sync_all(), "fsync {step}");
                 }
                 drop(file);

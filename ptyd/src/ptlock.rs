@@ -49,7 +49,7 @@ impl Resource for PtyLock {
                 .get_mut(..4)
                 .and_then(|b| <&mut [u8; 4]>::try_from(b).ok())
                 .ok_or(Error::new(EBADF))?;
-            *lock_buf = (pty.locked as u32).to_ne_bytes();
+            *lock_buf = u32::from(pty.locked).to_ne_bytes();
             Ok(4)
         } else {
             Ok(0)

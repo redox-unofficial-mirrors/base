@@ -239,13 +239,13 @@ impl HbaPort {
             }
         }
 
-        let mut sectors = (dest[100] as u64)
-            | ((dest[101] as u64) << 16)
-            | ((dest[102] as u64) << 32)
-            | ((dest[103] as u64) << 48);
+        let mut sectors = u64::from(dest[100])
+            | (u64::from(dest[101]) << 16)
+            | (u64::from(dest[102]) << 32)
+            | (u64::from(dest[103]) << 48);
 
         let lba_bits = if sectors == 0 {
-            sectors = (dest[60] as u64) | ((dest[61] as u64) << 16);
+            sectors = u64::from(dest[60]) | (u64::from(dest[61]) << 16);
             28
         } else {
             48
@@ -402,7 +402,7 @@ impl HbaPort {
         }
 
         let timeout = Timeout::new(TIMEOUT);
-        while self.tfd.readf((ATA_DEV_BUSY | ATA_DEV_DRQ) as u32) {
+        while self.tfd.readf(u32::from(ATA_DEV_BUSY | ATA_DEV_DRQ)) {
             timeout.run().map_err(|()| {
                 log::error!("HBA ata_start timeout");
                 Error::new(EIO)

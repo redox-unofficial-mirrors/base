@@ -23,10 +23,7 @@ impl PciBar {
     }
 
     pub fn is_none(&self) -> bool {
-        match self {
-            &PciBar::None => true,
-            _ => false,
-        }
+        matches!(self, &PciBar::None)
     }
 
     pub fn expect_port(&self) -> u16 {

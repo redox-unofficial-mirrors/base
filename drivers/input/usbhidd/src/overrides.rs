@@ -1,5 +1,5 @@
 #[rustfmt::skip]
-pub const OVERRIDES: &'static [(&'static str, &'static [u8])] = &[
+pub const OVERRIDES: &[(&str, &[u8])] = &[
     // Adapted from https://marc.info/?l=openbsd-tech&m=138227720105805&w=2
     (
         "xbox-360",

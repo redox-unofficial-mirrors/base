@@ -215,61 +215,60 @@ fn dhcp(iface: &str, verbose: bool) -> Result<(), String> {
                 0 => (),
                 255 => break,
                 _ => {
-                    if let Some(len) = options.next() {
-                        if *len as usize <= options.as_slice().len() {
-                            let data = &options.as_slice()[..*len as usize];
-                            for _data_i in 0..*len {
-                                options.next();
+                    if let Some(len) = options.next()
+                        && *len as usize <= options.as_slice().len()
+                    {
+                        let data = &options.as_slice()[..*len as usize];
+                        for _data_i in 0..*len {
+                            options.next();
+                        }
+                        match *option {
+                            1 => {
+                                if verbose {
+                                    println!("DHCP: Subnet Mask: {data:?}");
+                                }
+                                if data.len() == 4 && subnet_option.is_none() {
+                                    subnet_option = Some(Vec::from(data));
+                                }
                             }
-                            match *option {
-                                1 => {
-                                    if verbose {
-                                        println!("DHCP: Subnet Mask: {data:?}");
-                                    }
-                                    if data.len() == 4 && subnet_option.is_none() {
-                                        subnet_option = Some(Vec::from(data));
-                                    }
+                            3 => {
+                                if verbose {
+                                    println!("DHCP: Router: {data:?}");
                                 }
-                                3 => {
-                                    if verbose {
-                                        println!("DHCP: Router: {data:?}");
-                                    }
-                                    if data.len() == 4 && router_option.is_none() {
-                                        router_option = Some(Vec::from(data));
-                                    }
+                                if data.len() == 4 && router_option.is_none() {
+                                    router_option = Some(Vec::from(data));
                                 }
-                                6 => {
-                                    if verbose {
-                                        println!("DHCP: Domain Name Server: {data:?}");
-                                    }
-                                    if data.len() == 4 && dns_option.is_none() {
-                                        dns_option = Some(Vec::from(data));
-                                    }
+                            }
+                            6 => {
+                                if verbose {
+                                    println!("DHCP: Domain Name Server: {data:?}");
                                 }
-                                51 => {
-                                    if verbose {
-                                        println!("DHCP: Lease Time: {data:?}");
-                                    }
+                                if data.len() == 4 && dns_option.is_none() {
+                                    dns_option = Some(Vec::from(data));
                                 }
-                                53 => {
-                                    if verbose {
-                                        println!("DHCP: Message Type: {data:?}");
-                                    }
+                            }
+                            51 => {
+                                if verbose {
+                                    println!("DHCP: Lease Time: {data:?}");
                                 }
-                                54 => {
-                                    if verbose {
-                                        println!("DHCP: Server ID: {data:?}");
-                                    }
-                                    if data.len() == 4 {
-                                        // Store the server ID
-                                        server_id_option =
-                                            Some([data[0], data[1], data[2], data[3]]);
-                                    }
+                            }
+                            53 => {
+                                if verbose {
+                                    println!("DHCP: Message Type: {data:?}");
                                 }
-                                _ => {
-                                    if verbose {
-                                        println!("DHCP: {option}: {data:?}");
-                                    }
+                            }
+                            54 => {
+                                if verbose {
+                                    println!("DHCP: Server ID: {data:?}");
+                                }
+                                if data.len() == 4 {
+                                    // Store the server ID
+                                    server_id_option = Some([data[0], data[1], data[2], data[3]]);
+                                }
+                            }
+                            _ => {
+                                if verbose {
+                                    println!("DHCP: {option}: {data:?}");
                                 }
                             }
                         }
@@ -279,10 +278,10 @@ fn dhcp(iface: &str, verbose: bool) -> Result<(), String> {
         }
 
         let mask_len = if let Some(subnet) = subnet_option {
-            let mut subnet: u32 = (subnet[0] as u32) << 24
-                | (subnet[1] as u32) << 16
-                | (subnet[2] as u32) << 8
-                | subnet[3] as u32;
+            let mut subnet: u32 = u32::from(subnet[0]) << 24
+                | u32::from(subnet[1]) << 16
+                | u32::from(subnet[2]) << 8
+                | u32::from(subnet[3]);
             subnet = !subnet;
             subnet.leading_zeros()
         } else {

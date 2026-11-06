@@ -1,5 +1,5 @@
 use std::convert::TryInto;
-use std::{cmp, mem, ptr, slice, thread, time};
+use std::{cmp, ptr, slice, thread, time};
 
 use common::dma::Dma;
 use driver_network::NetworkAdapter;

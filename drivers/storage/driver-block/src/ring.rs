@@ -179,7 +179,7 @@ impl<T: Disk> RingDiskWrapper<T> {
         num_sectors: u32,
     ) -> syscall::Result<()> {
         if let Some(partition) = partition {
-            let end_lba = start_lba + num_sectors as u64;
+            let end_lba = start_lba + u64::from(num_sectors);
             if end_lba > partition.size {
                 return Err(Error::new(EOVERFLOW));
             }
@@ -199,7 +199,7 @@ impl<T: Disk> RingDiskWrapper<T> {
         num_sectors: u32,
     ) -> syscall::Result<()> {
         if let Some(partition) = partition {
-            let end_lba = start_lba + num_sectors as u64;
+            let end_lba = start_lba + u64::from(num_sectors);
             if end_lba > partition.size {
                 return Err(Error::new(EOVERFLOW));
             }
@@ -231,7 +231,7 @@ impl<T: Disk> RingDiskWrapper<T> {
                 .ok_or(syscall::Error::new(EBADF))?;
 
             let num_sectors = buf.len() as u32 / self.disk.block_size();
-            let end_lba = start_lba + num_sectors as u64;
+            let end_lba = start_lba + u64::from(num_sectors);
             if end_lba > part.size {
                 return Err(syscall::Error::new(EOVERFLOW));
             }
@@ -263,7 +263,7 @@ impl<T: Disk> RingDiskWrapper<T> {
                 .ok_or(syscall::Error::new(EBADF))?;
 
             let num_sectors = buf.len() as u32 / self.disk.block_size();
-            let end_lba = start_lba + num_sectors as u64;
+            let end_lba = start_lba + u64::from(num_sectors);
             if end_lba > part.size {
                 return Err(syscall::Error::new(EOVERFLOW));
             }

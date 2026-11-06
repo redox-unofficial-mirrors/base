@@ -48,7 +48,7 @@ impl Disk for NvmeDisk {
                 &self.ns,
                 start_lba,
                 addr.as_usize() as u64,
-                num_sectors as u64,
+                u64::from(num_sectors),
             )
             .await
     }
@@ -64,7 +64,7 @@ impl Disk for NvmeDisk {
                 &self.ns,
                 start_lba,
                 addr.as_usize() as u64,
-                num_sectors as u64,
+                u64::from(num_sectors),
             )
             .await
     }

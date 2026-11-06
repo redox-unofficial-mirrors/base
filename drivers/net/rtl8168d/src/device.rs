@@ -1,5 +1,4 @@
 use std::convert::TryInto;
-use std::mem;
 
 use common::dma::Dma;
 use common::io::{Io, Mmio, ReadOnly};

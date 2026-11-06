@@ -76,7 +76,7 @@ impl Ps2d {
         // TODO: QEMU hack, maybe do this when Init timed out?
         if vmmouse {
             // 3 = MouseId::Intellimouse1
-            MouseState::Bat.handle(3, &mut ps2);
+            let _ = MouseState::Bat.handle(3, &mut ps2);
         }
 
         let mut this = Ps2d {
@@ -427,12 +427,12 @@ impl Ps2d {
             if !flags.contains(MousePacketFlags::X_OVERFLOW)
                 && !flags.contains(MousePacketFlags::Y_OVERFLOW)
             {
-                let mut dx = self.packets[1] as i32;
+                let mut dx = i32::from(self.packets[1]);
                 if flags.contains(MousePacketFlags::X_SIGN) {
                     dx -= 0x100;
                 }
 
-                let mut dy = -(self.packets[2] as i32);
+                let mut dy = -i32::from(self.packets[2]);
                 if flags.contains(MousePacketFlags::Y_SIGN) {
                     dy += 0x100;
                 }
@@ -443,7 +443,7 @@ impl Ps2d {
                     if scroll & (1 << 3) == 1 << 3 {
                         scroll -= 16;
                     }
-                    dz = -scroll as i32;
+                    dz = i32::from(-scroll);
                 }
 
                 if dx != 0 || dy != 0 {
