@@ -58,7 +58,7 @@ bitflags! {
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
 #[allow(dead_code)]
-enum Command {
+pub(crate) enum Command {
     ReadConfig = 0x20,
     WriteConfig = 0x60,
     DisableSecond = 0xA7,
@@ -151,7 +151,7 @@ impl Ps2 {
         }
     }
 
-    fn command(&mut self, command: Command) -> Result<(), Error> {
+    pub(crate) fn command(&mut self, command: Command) -> Result<(), Error> {
         self.wait_write(DEFAULT_TIMEOUT)
             .map_err(|_| Error::CommandTimeout(command))?;
         self.command.write(command as u8);
@@ -253,7 +253,7 @@ impl Ps2 {
 
     pub fn mouse_command_async(&mut self, command: u8) -> Result<(), Error> {
         self.command(Command::WriteSecond)?;
-        self.write(command as u8)
+        self.write(command)
     }
 
     pub fn next(&mut self) -> Option<(bool, u8)> {

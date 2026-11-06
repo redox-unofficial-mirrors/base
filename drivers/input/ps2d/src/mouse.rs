@@ -1,8 +1,9 @@
 use std::time::Duration;
 
-use crate::controller::Ps2;
+use crate::controller::{Command, Ps2};
 
 pub const RESET_RETRIES: usize = 10;
+pub const REPORTING_RETRIES: usize = 10;
 pub const RESET_TIMEOUT: Duration = Duration::from_millis(1000);
 pub const COMMAND_TIMEOUT: Duration = Duration::from_millis(100);
 
@@ -112,7 +113,7 @@ pub enum MouseState {
     /// Device ID update
     DeviceId,
     /// Enable reporting command sent
-    EnableReporting { id: u8 },
+    EnableReporting { id: u8, retries: usize },
     /// Mouse is streaming
     Streaming { id: u8 },
 }
@@ -148,10 +149,10 @@ impl MouseState {
         }
     }
 
-    fn enable_reporting(&mut self, id: u8, ps2: &mut Ps2) -> MouseResult {
+    fn enable_reporting(&mut self, id: u8, retries: usize, ps2: &mut Ps2) -> MouseResult {
         match ps2.mouse_command_async(MouseCommand::EnableReporting as u8) {
             Ok(()) => {
-                *self = MouseState::EnableReporting { id };
+                *self = MouseState::EnableReporting { id, retries };
                 MouseResult::Timeout(COMMAND_TIMEOUT)
             }
             Err(err) => {
@@ -186,7 +187,7 @@ impl MouseState {
             Err(err) => {
                 log::error!("failed to request mouse id: {:?}", err);
                 //TODO: reset mouse instead?
-                self.enable_reporting(MouseId::Base as u8, ps2)
+                self.enable_reporting(MouseId::Base as u8, 0, ps2)
             }
         }
     }
@@ -284,7 +285,7 @@ impl MouseState {
                 } else if data == MouseId::Intellimouse1 as u8 {
                     // Extra packet already enabled
                     log::debug!("BAT mouse id {:02X} (intellimouse)", data);
-                    self.enable_reporting(data, ps2)
+                    self.enable_reporting(data, 0, ps2)
                 } else {
                     log::warn!("unknown mouse id {:02X} after BAT", data);
                     MouseResult::Timeout(RESET_TIMEOUT)
@@ -339,13 +340,13 @@ impl MouseState {
                     MouseResult::Timeout(COMMAND_TIMEOUT)
                 } else if data == MouseId::Base as u8 || data == MouseId::Intellimouse1 as u8 {
                     log::debug!("mouse id {:02X}", data);
-                    self.enable_reporting(data, ps2)
+                    self.enable_reporting(data, 0, ps2)
                 } else {
                     log::warn!("unknown mouse id {:02X} after requesting id", data);
                     self.reset(ps2)
                 }
             }
-            MouseState::EnableReporting { id } => {
+            MouseState::EnableReporting { id, .. } => {
                 log::debug!("mouse id {:02X} enable reporting {:02X}", id, data);
                 //TODO: handle response ok/error
                 *self = MouseState::Streaming { id };
@@ -366,6 +367,13 @@ impl MouseState {
             }
             MouseState::Reset => {
                 log::debug!("timeout waiting for mouse reset");
+                // Disabling and enabling second port helps with reset timeouts on some systems
+                if let Err(err) = ps2.command(Command::DisableSecond) {
+                    log::warn!("error disabling second port: {:?}", err);
+                }
+                if let Err(err) = ps2.command(Command::EnableSecond) {
+                    log::warn!("error enabling second port: {:?}", err);
+                }
                 self.reset(ps2)
             }
             MouseState::Bat => {
@@ -388,12 +396,20 @@ impl MouseState {
             }
             MouseState::DeviceId => {
                 log::debug!("timeout requesting mouse id");
-                self.enable_reporting(0, ps2)
+                self.enable_reporting(0, 0, ps2)
             }
-            MouseState::EnableReporting { id } => {
-                log::debug!("timeout enabling reporting");
-                //TODO: limit number of retries
-                self.enable_reporting(id, ps2)
+            MouseState::EnableReporting { id, mut retries } => {
+                retries += 1;
+                log::debug!(
+                    "timeout enabling reporting: {}/{}",
+                    retries,
+                    REPORTING_RETRIES
+                );
+                if retries < REPORTING_RETRIES {
+                    self.enable_reporting(id, retries, ps2)
+                } else {
+                    self.reset(ps2)
+                }
             }
         }
     }
