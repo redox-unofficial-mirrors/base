@@ -102,7 +102,7 @@ pub fn format_to_u16(sr: &SampleRate, bps: BitsPerSample, channels: u8) -> u16 {
 
     let bits = (bps as u16) << 4;
 
-    let chan = ((channels - 1) & 0xF) as u16;
+    let chan = u16::from((channels - 1) & 0xF);
 
     let val: u16 = base | mult | div | bits | chan;
 
@@ -135,8 +135,8 @@ impl StreamDescriptorRegs {
     }
 
     pub fn control(&self) -> u32 {
-        let mut ctrl = self.ctrl_lo.read() as u32;
-        ctrl |= (self.ctrl_hi.read() as u32) << 16;
+        let mut ctrl = u32::from(self.ctrl_lo.read());
+        ctrl |= u32::from(self.ctrl_hi.read()) << 16;
         ctrl
     }
 
@@ -179,7 +179,7 @@ impl StreamDescriptorRegs {
     }
 
     pub fn set_stream_number(&mut self, stream_number: u8) {
-        let val = (self.control() & 0x00FFFF) | (((stream_number & 0xF) as u32) << 20);
+        let val = (self.control() & 0x00FFFF) | (u32::from(stream_number & 0xF) << 20);
         self.set_control(val);
     }
 
@@ -282,7 +282,7 @@ pub struct BufferDescriptorListEntry {
 
 impl BufferDescriptorListEntry {
     pub fn address(&self) -> u64 {
-        (self.addr_low.read() as u64) | ((self.addr_high.read() as u64) << 32)
+        u64::from(self.addr_low.read()) | (u64::from(self.addr_high.read()) << 32)
     }
 
     pub fn set_address(&mut self, addr: u64) {

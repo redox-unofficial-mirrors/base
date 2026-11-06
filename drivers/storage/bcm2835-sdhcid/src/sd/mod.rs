@@ -307,12 +307,12 @@ impl SdHostCtrl {
 
         let (csize, cmult) = if (self.ocr & ACMD41_CMD_CCS) != 0 {
             let csize = (self.csd[1] & 0x3f) << 16 | (self.csd[2] & 0xffff_0000) >> 16;
-            let cmult = 8;
-            (csize as u64, cmult as u64)
+            let cmult = 8_u64;
+            (u64::from(csize), cmult)
         } else {
             let csize = (self.csd[1] & 0x3ff) << 2 | (self.csd[2] & 0xc000_0000) >> 30;
             let cmult = (self.csd[2] & 0x0003_8000) >> 15;
-            (csize as u64, cmult as u64)
+            (u64::from(csize), u64::from(cmult))
         };
         self.size = ((csize + 1) << (cmult + 2)) * 512;
         println!("mmc size = 0x{:08x}", self.size);

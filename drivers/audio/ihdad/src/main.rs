@@ -47,8 +47,8 @@ fn daemon(daemon: daemon::Daemon, mut pcid_handle: PciFunctionHandle) -> ! {
     let irq_file = pci_allocate_interrupt_vector(&mut pcid_handle, "ihdad");
 
     {
-        let vend_prod: u32 = ((pci_config.func.full_device_id.vendor_id as u32) << 16)
-            | (pci_config.func.full_device_id.device_id as u32);
+        let vend_prod: u32 = (u32::from(pci_config.func.full_device_id.vendor_id) << 16)
+            | u32::from(pci_config.func.full_device_id.device_id);
 
         user_data! {
             enum Source {

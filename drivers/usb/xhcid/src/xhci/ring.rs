@@ -26,7 +26,7 @@ impl Ring {
     pub fn register(&self) -> u64 {
         let base = self.trbs.physical() as *const Trb;
         let addr = unsafe { base.offset(self.i as isize) };
-        addr as u64 | self.cycle as u64
+        addr as u64 | u64::from(self.cycle)
     }
 
     pub fn next_index(&mut self) -> usize {

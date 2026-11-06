@@ -4,9 +4,9 @@ use std::{env, io, iter};
 use crate::InitConfig;
 use crate::unit::UnitId;
 
-pub fn subst_env<'a>(arg: &str) -> String {
-    if arg.starts_with('$') {
-        env::var(&arg[1..]).unwrap_or(String::new())
+pub fn subst_env(arg: &str) -> String {
+    if let Some(stripped) = arg.strip_prefix('$') {
+        env::var(stripped).unwrap_or_default()
     } else {
         arg.to_owned()
     }

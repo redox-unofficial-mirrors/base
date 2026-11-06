@@ -859,8 +859,8 @@ impl IntelHDA {
         if mute {
             payload |= 1 << 7;
         }
-        payload |= ((index as u16) & 0x0F) << 8;
-        payload |= (gain as u16) & 0x7F;
+        payload |= (u16::from(index) & 0x0F) << 8;
+        payload |= u16::from(gain) & 0x7F;
 
         self.cmd.cmd4(addr, 0x3, payload)?;
         Ok(())

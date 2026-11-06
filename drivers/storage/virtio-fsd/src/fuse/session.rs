@@ -245,7 +245,7 @@ where
 
     /// Whether this `FUSE_INIT` flag was negotiated (`flags` / `flags2`).
     pub fn capable(&self, cap: impl Into<u64>) -> bool {
-        (self.init.flags as u64 | (self.init.flags2 as u64) << 32) & cap.into() != 0
+        (u64::from(self.init.flags) | u64::from(self.init.flags2) << 32) & cap.into() != 0
     }
 
     /// Max payload of one `FUSE_WRITE` (`fuse_init_out.max_write`).

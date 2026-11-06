@@ -12,3 +12,6 @@ edition = "2021"
 acpi.workspace = true
 serde.workspace = true
 toml.workspace = true
+
+[lints]
+workspace = true

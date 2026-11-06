@@ -176,13 +176,13 @@ fn daemon(daemon: daemon::Daemon, pcid_handle: PciFunctionHandle) -> ! {
                     }
                 }
 
-                let mut sectors = (dest[100] as u64)
-                    | ((dest[101] as u64) << 16)
-                    | ((dest[102] as u64) << 32)
-                    | ((dest[103] as u64) << 48);
+                let mut sectors = u64::from(dest[100])
+                    | (u64::from(dest[101]) << 16)
+                    | (u64::from(dest[102]) << 32)
+                    | (u64::from(dest[103]) << 48);
 
                 let lba_bits = if sectors == 0 {
-                    sectors = (dest[60] as u64) | ((dest[61] as u64) << 16);
+                    sectors = u64::from(dest[60]) | (u64::from(dest[61]) << 16);
                     28
                 } else {
                     48

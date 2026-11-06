@@ -566,13 +566,13 @@ fn elf_entry(data: &[u8]) -> u64 {
     assert!(&data[..4] == b"\x7FELF");
     match (data[4], data[5]) {
         // 32-bit, little endian
-        (1, 1) => u32::from_le_bytes(
+        (1, 1) => u64::from(u32::from_le_bytes(
             <[u8; 4]>::try_from(&data[0x18..0x18 + 4]).expect("conversion cannot fail"),
-        ) as u64,
+        )),
         // 32-bit, big endian
-        (1, 2) => u32::from_be_bytes(
+        (1, 2) => u64::from(u32::from_be_bytes(
             <[u8; 4]>::try_from(&data[0x18..0x18 + 4]).expect("conversion cannot fail"),
-        ) as u64,
+        )),
         // 64-bit, little endian
         (2, 1) => u64::from_le_bytes(
             <[u8; 8]>::try_from(&data[0x18..0x18 + 8]).expect("conversion cannot fail"),

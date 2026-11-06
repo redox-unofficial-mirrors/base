@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 use std::time::{Duration, Instant};
-use std::{cmp, mem, ptr, slice, thread};
+use std::{cmp, ptr, slice, thread};
 
 use common::dma::Dma;
 use driver_network::NetworkAdapter;

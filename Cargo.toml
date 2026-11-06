@@ -125,10 +125,11 @@ zerocopy = { version = "0.8", features = ["derive"] }
 missing_docs = "allow" #TODO: set to deny when all public functions are documented
 
 [workspace.lints.clippy]
+cast_lossless = "warn" #TODO: set to deny when all instances tackled
 missing_safety_doc = "warn" #TODO: set to deny when all safety documentation is completed
+perf = { level = "deny", priority = -1 }
 precedence = "deny"
 unused_io_amount = "warn" #TODO: have an abstraction to irq file read/write, then set to deny
-perf = { level = "deny", priority = -1 }
 
 [patch."https://gitlab.redox-os.org/redox-os/relibc.git"]
 #redox-ioctl = { path = "../../relibc/source/redox-ioctl" }

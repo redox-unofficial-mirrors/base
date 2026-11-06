@@ -99,7 +99,7 @@ fn daemon(daemon: daemon::Daemon) -> ! {
                         ConsumerHandleEvent::Events(&[]) => break,
                         ConsumerHandleEvent::Events(events) => {
                             for event in events {
-                                bootlog.handle_input(&event);
+                                bootlog.handle_input(event);
                             }
                         }
                         ConsumerHandleEvent::Handoff => {

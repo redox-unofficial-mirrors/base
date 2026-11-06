@@ -155,11 +155,11 @@ impl Trb {
     }
 
     pub fn reserved(&mut self, cycle: bool) {
-        self.set(0, 0, ((TrbType::Reserved as u32) << 10) | (cycle as u32));
+        self.set(0, 0, ((TrbType::Reserved as u32) << 10) | u32::from(cycle));
     }
 
     pub fn read_data(&self) -> u64 {
-        (self.data_low.read() as u64) | ((self.data_high.read() as u64) << 32)
+        u64::from(self.data_low.read()) | (u64::from(self.data_high.read()) << 32)
     }
 
     pub fn completion_code(&self) -> u8 {
@@ -238,12 +238,12 @@ impl Trb {
         self.set(
             address as u64,
             0,
-            ((TrbType::Link as u32) << 10) | ((toggle as u32) << 1) | (cycle as u32),
+            ((TrbType::Link as u32) << 10) | (u32::from(toggle) << 1) | u32::from(cycle),
         );
     }
 
     pub fn no_op_cmd(&mut self, cycle: bool) {
-        self.set(0, 0, ((TrbType::NoOpCmd as u32) << 10) | (cycle as u32));
+        self.set(0, 0, ((TrbType::NoOpCmd as u32) << 10) | u32::from(cycle));
     }
 
     pub fn enable_slot(&mut self, slot_type: u8, cycle: bool) {
@@ -251,9 +251,9 @@ impl Trb {
         self.set(
             0,
             0,
-            (((slot_type as u32) & 0x1F) << 16)
+            ((u32::from(slot_type) & 0x1F) << 16)
                 | ((TrbType::EnableSlot as u32) << 10)
-                | (cycle as u32),
+                | u32::from(cycle),
         );
     }
     pub fn disable_slot(&mut self, slot: u8, cycle: bool) {
@@ -383,15 +383,15 @@ impl Trb {
             ((transfer as u32) << 16)
                 | ((TrbType::SetupStage as u32) << 10)
                 | (1 << 6)
-                | (cycle as u32),
+                | u32::from(cycle),
         );
     }
 
     pub fn data(&mut self, buffer: usize, length: u16, input: bool, cycle: bool) {
         self.set(
             buffer as u64,
-            length as u32,
-            ((input as u32) << 16) | ((TrbType::DataStage as u32) << 10) | (cycle as u32),
+            u32::from(length),
+            (u32::from(input) << 16) | ((TrbType::DataStage as u32) << 10) | u32::from(cycle),
         );
     }
 
@@ -416,7 +416,7 @@ impl Trb {
                 | (u32::from(ioc) << 5)
                 | (u32::from(ch) << 4)
                 | (u32::from(ent) << 1)
-                | (cycle as u32),
+                | u32::from(cycle),
         );
     }
     pub fn normal(

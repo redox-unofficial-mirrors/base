@@ -228,22 +228,20 @@ impl Unit {
     }
 
     pub fn conditions_met(&self) -> bool {
-        if let Some(condition_architecture) = &self.info.condition_architecture {
-            if !condition_architecture
+        if let Some(condition_architecture) = &self.info.condition_architecture
+            && !condition_architecture
                 .iter()
                 .any(|arch| arch == std::env::consts::ARCH)
-            {
-                return false;
-            }
+        {
+            return false;
         }
 
-        if let Some(condition_board) = &self.info.condition_board {
-            if !condition_board
+        if let Some(condition_board) = &self.info.condition_board
+            && !condition_board
                 .iter()
                 .any(|board| Some(&**board) == option_env!("BOARD"))
-            {
-                return false;
-            }
+        {
+            return false;
         }
 
         true

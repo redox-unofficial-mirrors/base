@@ -206,7 +206,7 @@ pub fn modeinfo_for_detailed_timing(timing: &VideoMode) -> Option<drm_mode_modei
     let Some(clock) = timing.pixel_clock_khz else {
         return None; // TODO: or fallback default?
     };
-    let vrefresh = (clock * 1000) / ((htotal as u32) * (vtotal as u32));
+    let vrefresh = (clock * 1000) / (u32::from(htotal) * u32::from(vtotal));
 
     let mut flags = 0;
     match timing.sync {

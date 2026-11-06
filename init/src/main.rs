@@ -37,7 +37,7 @@ impl InitConfig {
         let log_level = env::var("INIT_LOG_LEVEL").unwrap_or("INFO".into());
         let log_debug = matches!(log_level.as_str(), "DEBUG" | "TRACE");
         let skip_cmd: Vec<String> = match env::var("INIT_SKIP") {
-            Ok(v) if v.len() > 0 => v.split(',').map(|s| s.to_string()).collect(),
+            Ok(v) if !v.is_empty() => v.split(',').map(|s| s.to_string()).collect(),
             _ => Vec::new(),
         };
 

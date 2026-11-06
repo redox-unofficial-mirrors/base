@@ -117,7 +117,7 @@ impl Into<u8> for AmlSerdeFieldFlags {
         // bits 0..4
         (self.access_type as u8) +
         // bit 4
-        (self.lock_rule as u8).shl(4) +
+        u8::from(self.lock_rule).shl(4) +
         // bits 5..7
         (self.update_rule as u8).shl(5)
     }
@@ -168,11 +168,7 @@ impl AmlSerde {
             return None;
         };
 
-        let value = if let Some(value) = AmlSerdeValue::from_aml_value(aml_value.deref()) {
-            value
-        } else {
-            return None;
-        };
+        let value = AmlSerdeValue::from_aml_value(aml_value.deref())?;
 
         Some(AmlSerde {
             name: aml_name.to_string(),
@@ -383,7 +379,7 @@ impl AmlSerdeValue {
                 //TODO check specs to see if all bit patterns are allowed
                 flags: MethodFlags(
                     (arg_count as u8).clamp(0, 7)
-                        + (serialize as u8).shl(3)
+                        + u8::from(serialize).shl(3)
                         + sync_level.clamp(0, 15).shl(4),
                 ),
             },
@@ -409,7 +405,7 @@ impl AmlSerdeValue {
             },
             AmlSerdeValue::Mutex { mutex, sync_level } => Object::Mutex {
                 mutex: Handle(mutex),
-                sync_level: sync_level,
+                sync_level,
             },
             AmlSerdeValue::Reference { kind, inner } => Object::Reference {
                 kind: match kind {
@@ -462,7 +458,7 @@ pub mod aml_serde_name {
         while let Some(index) = name.find("_.") {
             name.remove(index);
         }
-        while name.len() > 0 && &name[name.len() - 1..] == "_" {
+        while !name.is_empty() && &name[name.len() - 1..] == "_" {
             name.pop();
         }
         name.shrink_to_fit();

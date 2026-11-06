@@ -157,8 +157,8 @@ impl Nvme {
         log::debug!("CC: {:X}", regs.cc.read());
         log::debug!("CSTS: {:X}", regs.csts.read());
 
-        let cap_low = regs.cap_low.read() as u64;
-        let cap_high = regs.cap_high.read() as u64;
+        let cap_low = u64::from(regs.cap_low.read());
+        let cap_high = u64::from(regs.cap_high.read());
         let caps = Caps(cap_low | cap_high << 32);
 
         Ok(Nvme {
@@ -450,7 +450,7 @@ impl Nvme {
         let block_size = namespace.block_size;
 
         let prp = ctxt.buffer_prp.borrow_mut();
-        let bytes = ((blocks_1 as u64) + 1) * block_size;
+        let bytes = (u64::from(blocks_1) + 1) * block_size;
         let (ptr0, ptr1) = if bytes <= 4096 {
             (prp[0], 0)
         } else if bytes <= 8192 {
@@ -546,7 +546,7 @@ impl Nvme {
     ) -> Result<()> {
         let block_size = namespace.block_size;
 
-        let bytes = ((blocks_1 as u64) + 1) * block_size;
+        let bytes = (u64::from(blocks_1) + 1) * block_size;
         let (ptr0, ptr1) = if bytes <= 4096 {
             (phys_addr, 0)
         } else if bytes <= 8192 {

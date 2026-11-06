@@ -164,11 +164,7 @@ impl FeatureStatus {
         }
     }
     pub fn is_enabled(&self) -> bool {
-        if let &Self::Enabled = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, &Self::Enabled)
     }
 }
 
@@ -179,18 +175,10 @@ pub enum PciFeature {
 }
 impl PciFeature {
     pub fn is_msi(self) -> bool {
-        if let Self::Msi = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::Msi)
     }
     pub fn is_msix(self) -> bool {
-        if let Self::MsiX = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::MsiX)
     }
 }
 #[derive(Debug, Serialize, Deserialize)]

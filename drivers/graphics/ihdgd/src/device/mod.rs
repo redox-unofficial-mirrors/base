@@ -19,7 +19,6 @@ mod aux;
 mod bios;
 use self::bios::*;
 mod buffer;
-use self::buffer::*;
 mod ddi;
 use self::ddi::*;
 mod dpll;

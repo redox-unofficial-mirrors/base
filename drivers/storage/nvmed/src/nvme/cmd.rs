@@ -20,7 +20,7 @@ impl NvmeCmd {
             _rsvd: 0,
             mptr: 0,
             dptr: [ptr as u64, 0],
-            cdw10: ((size as u32) << 16) | (qid as u32),
+            cdw10: (u32::from(size) << 16) | u32::from(qid),
 
             cdw11: DW11_PHYSICALLY_CONTIGUOUS_BIT
                 | if let Some(iv) = iv {
@@ -52,8 +52,8 @@ impl NvmeCmd {
             _rsvd: 0,
             mptr: 0,
             dptr: [ptr as u64, 0],
-            cdw10: ((size as u32) << 16) | (qid as u32),
-            cdw11: ((cqid as u32) << 16) | 1, /* Physically Contiguous */
+            cdw10: (u32::from(size) << 16) | u32::from(qid),
+            cdw11: (u32::from(cqid) << 16) | 1, /* Physically Contiguous */
             //TODO: QPRIO
             cdw12: 0, //TODO: NVMSETID
             cdw13: 0,
@@ -136,7 +136,7 @@ impl NvmeCmd {
             dptr: [ptr0, ptr1],
             cdw10: lba as u32,
             cdw11: (lba >> 32) as u32,
-            cdw12: blocks_1 as u32,
+            cdw12: u32::from(blocks_1),
             cdw13: 0,
             cdw14: 0,
             cdw15: 0,
@@ -154,7 +154,7 @@ impl NvmeCmd {
             dptr: [ptr0, ptr1],
             cdw10: lba as u32,
             cdw11: (lba >> 32) as u32,
-            cdw12: blocks_1 as u32,
+            cdw12: u32::from(blocks_1),
             cdw13: 0,
             cdw14: 0,
             cdw15: 0,

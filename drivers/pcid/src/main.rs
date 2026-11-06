@@ -189,7 +189,7 @@ fn enable_function(
 
     let legacy_interrupt_enabled = match interrupt_pin {
         0 => false,
-        1 | 2 | 3 | 4 => true,
+        1..=4 => true,
 
         other => {
             warn!("pcid: invalid interrupt pin: {}", other);
@@ -199,14 +199,14 @@ fn enable_function(
 
     if legacy_interrupt_enabled {
         let pci_address = endpoint_header.header().address();
-        let dt_address = ((pci_address.bus() as u32) << 16)
-            | ((pci_address.device() as u32) << 11)
-            | ((pci_address.function() as u32) << 8);
+        let dt_address = (u32::from(pci_address.bus()) << 16)
+            | (u32::from(pci_address.device()) << 11)
+            | (u32::from(pci_address.function()) << 8);
         let addr = [
             dt_address & pcie.interrupt_map_mask[0],
             0u32,
             0u32,
-            interrupt_pin as u32 & pcie.interrupt_map_mask[3],
+            u32::from(interrupt_pin) & pcie.interrupt_map_mask[3],
         ];
         let mapping = pcie
             .interrupt_map

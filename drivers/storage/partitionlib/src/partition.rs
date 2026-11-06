@@ -36,8 +36,8 @@ fn get_gpt_partitions<D: Read + Seek>(
         partitions: gpt::partition::file_read_partitions(device, &header, sector_size).map(
             |btree| {
                 btree
-                    .into_iter()
-                    .map(|(_, part)| Partition {
+                    .into_values()
+                    .map(|part| Partition {
                         flags: Some(part.flags),
                         size: part.last_lba - part.first_lba + 1,
                         name: Some(part.name.clone()),
