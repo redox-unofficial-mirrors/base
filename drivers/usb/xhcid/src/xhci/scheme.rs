@@ -1238,8 +1238,29 @@ impl<const N: usize> Xhci<N> {
 
         if let Some(interface_num) = req.interface_desc {
             if let Some(alternate_setting) = req.alternate_setting {
-                self.set_interface(port, interface_num, alternate_setting)
-                    .await?;
+                // We should only set the interface alternate setting if there are different ones
+                // Some devices stall if there is only one alternate setting (0) and set_interface is used
+                let must_set_interface = {
+                    let port_state = self.port_states.get(&port).ok_or(Error::new(EBADFD))?;
+                    port_state
+                        .dev_desc
+                        .as_ref()
+                        .and_then(|x| {
+                            x.config_descs
+                                .iter()
+                                .find(|x| x.configuration_value == req.config_desc)
+                        })
+                        .map_or(false, |x| {
+                            x.interface_descs.iter().any(|x| {
+                                x.number == interface_num
+                                    && x.alternate_setting != alternate_setting
+                            })
+                        })
+                };
+                if must_set_interface {
+                    self.set_interface(port, interface_num, alternate_setting)
+                        .await?;
+                }
             }
         }
 
