@@ -320,10 +320,13 @@ fn main() -> Result<()> {
 
     //TODO: do we need to set protocol to report? It fails for mice.
 
-    //TODO: dynamically create good values, fix xhcid so it does not block on each request
-    // This sets all reports to a duration of 4ms
-    if let Err(err) = reqs::set_idle(&handle, 1, 0, u16::from(interface_num)) {
-        log::warn!("failed to set idle: {}", err);
+    // Only set idle on actual HID devices (this driver also supports mapping some non-HID devices)
+    if if_desc.class == 3 {
+        //TODO: dynamically create good values, fix xhcid so it does not block on each request
+        // This sets all reports to a duration of 4ms
+        if let Err(err) = reqs::set_idle(&handle, 1, 0, u16::from(interface_num)) {
+            log::warn!("failed to set idle: {}", err);
+        }
     }
 
     let report_desc_bytes = if let Some(hid_desc) = hid_desc_opt {
