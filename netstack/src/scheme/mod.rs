@@ -8,6 +8,8 @@ use std::str::FromStr;
 use libredox::{flag, Fd};
 use redox_scheme::scheme::{IntoTag, Op, SchemeResponse, SchemeState, SchemeSync};
 use redox_scheme::{CallerCtx, RequestKind, Response, SignalBehavior, Socket};
+#[expect(clippy::single_component_path_imports)]
+use smoltcp;
 use smoltcp::iface::{Config, Interface as SmoltcpInterface};
 use smoltcp::phy::Tracer;
 use smoltcp::socket::AnySocket;
@@ -15,7 +17,6 @@ use smoltcp::time::{Duration, Instant};
 use smoltcp::wire::{
     EthernetAddress, HardwareAddress, IpAddress, IpCidr, IpListenEndpoint, Ipv4Address,
 };
-use smoltcp::{self};
 use syscall::data::TimeSpec;
 use syscall::{self, Error as SyscallError};
 
@@ -464,6 +465,7 @@ where
         Ok(result)
     }
 
+    #[expect(clippy::useless_conversion, reason = "cur_time.tv_nsec is i32 on i586")]
     pub fn notify_sockets(&mut self) -> Result<()> {
         let cur_time = libredox::call::clock_gettime(flag::CLOCK_MONOTONIC)
             .map_err(|e| Error::from_syscall_error(e.into(), "Can't get time"))?;
