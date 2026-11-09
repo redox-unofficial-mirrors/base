@@ -70,8 +70,6 @@ pub struct Smolnetd {
 }
 
 impl Smolnetd {
-    #[expect(dead_code)]
-    pub const MAX_PACKET_SIZE: usize = 2048;
     pub const SOCKET_BUFFER_SIZE: usize = 128; //packets
     pub const MIN_CHECK_TIMEOUT: Duration = Duration::from_millis(10);
     pub const MAX_CHECK_TIMEOUT: Duration = Duration::from_millis(500);
