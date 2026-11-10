@@ -295,7 +295,7 @@ fn handle_scheme<'a>(
             // no response associated
             Pending
         }
-        RequestKind::SendFd(req) => Ready(scheme.on_sendfd(socket, req)),
+        RequestKind::SendFd(req) => Ready(scheme.on_sendfd(socket, req, awoken)),
 
         // ignore
         _ => Pending,
@@ -602,7 +602,12 @@ impl<'a> ProcScheme<'a> {
         self.next_id.0 += 1;
         id
     }
-    fn on_sendfd(&mut self, socket: &Socket, req: SendFdRequest) -> Response {
+    fn on_sendfd(
+        &mut self,
+        socket: &Socket,
+        req: SendFdRequest,
+        awoken: &mut VecDeque<VirtualId>,
+    ) -> Response {
         match self.handles[req.id()] {
             ref mut st @ Handle::Init => {
                 let mut fd_out = usize::MAX;
@@ -678,11 +683,8 @@ impl<'a> ProcScheme<'a> {
             }
             Handle::ProcObj(pid) => {
                 let metadata = req.metadata();
-                let Some(verb) = ProcCall::try_from_raw(metadata[0] as usize) else {
-                    return Response::err(EINVAL, req);
-                };
-                match verb {
-                    ProcCall::ControlTerm => {
+                match ProcCall::try_from_raw(metadata[0] as usize) {
+                    Some(ProcCall::ControlTerm) => {
                         let Some(caller_proc_rc) = self.processes.get(&pid) else {
                             return Response::new(Err(Error::new(EINVAL)), req);
                         };
@@ -700,16 +702,54 @@ impl<'a> ProcScheme<'a> {
                         ) {
                             return Response::new(Err(e), req);
                         };
-                        let cont_term = FdGuard::new(fd_out);
-                        // Can only assign a controlling terminal if the session doesn't have one
-                        if let Some(session) = self.sessions.get_mut(&pid)
-                            && session.controlling_term.is_none()
+                        // Only 0 and 1 are valid values for `arg` in `ioctl(fd, TIOCSCTTY, arg)`
+                        let should_steal = match metadata[1] {
+                            0 => false,
+                            1 => true,
+                            _ => return Response::new(Err(Error::new(EINVAL)), req),
+                        };
+                        // Can only assign a controlling terminal if the calling session doesn't have one
+                        if let Some(session) = self.sessions.get(&pid)
+                            && session.controlling_term.is_some()
                         {
-                            session.controlling_term = Some(cont_term);
-                            Response::ok(0, req)
-                        } else {
-                            Response::new(Err(Error::new(EINVAL)), req)
+                            return Response::new(Err(Error::new(EINVAL)), req);
                         }
+                        // Search through all sessions to see if the terminal already belongs to a different one
+                        for (sid, session) in &mut self.sessions {
+                            // Found a session that already has `fd_out` as its controlling terminal
+                            if let Some(term) = &session.controlling_term
+                                && term.as_raw_fd() == fd_out
+                            {
+                                if should_steal {
+                                    // Remove controlling terminal from the session we are stealing from
+                                    session.controlling_term = None;
+                                    let other_proc_rc = self.processes.get(sid).expect("exists");
+                                    let other_proc = other_proc_rc.borrow_mut();
+                                    // Send signals to the session leader we are stealing from
+                                    for signal in [SIGCONT, SIGHUP] {
+                                        let _ = self.on_send_sig(
+                                            other_proc.pid,
+                                            KillTarget::Proc(other_proc.pid),
+                                            signal as u8,
+                                            &mut false,
+                                            KillMode::Idempotent,
+                                            false,
+                                            awoken,
+                                        );
+                                    }
+                                } else {
+                                    // `arg` was 0 so not allowed to steal
+                                    return Response::new(Err(Error::new(EPERM)), req);
+                                }
+                                // no need to keep searching
+                                // a terminal can only belong to one session as controlling terminal
+                                break;
+                            }
+                        }
+                        let cont_term = FdGuard::new(fd_out);
+                        let session = self.sessions.get_mut(&pid).expect("exists");
+                        session.controlling_term = Some(cont_term);
+                        Response::ok(0, req)
                     }
                     _ => Response::err(EINVAL, req),
                 }
