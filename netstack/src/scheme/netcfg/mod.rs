@@ -286,7 +286,7 @@ impl NetCfgFile {
         if let Some(ref mut node_writer) = self.node_writer {
             if !self.write_buf.is_empty() {
                 let line = str::from_utf8(&self.write_buf)
-                    .or_else(|_| Err(SyscallError::new(syscall::EINVAL)))?;
+                    .map_err(|_| SyscallError::new(syscall::EINVAL))?;
                 node_writer.write_line(line)?;
             }
             node_writer.commit()?;
@@ -304,7 +304,7 @@ impl NetCfgFile {
                     let mut consumed = false;
                     for next_line in lines {
                         let line = str::from_utf8(cur_line)
-                            .or_else(|_| Err(SyscallError::new(syscall::EINVAL)))?;
+                            .map_err(|_| SyscallError::new(syscall::EINVAL))?;
                         trace!("writing line {}", line);
                         node_writer.write_line(line)?;
                         cur_line = next_line;
@@ -365,16 +365,11 @@ impl NetCfgScheme {
     }
 
     pub fn on_scheme_event(&mut self) -> Result<()> {
-        loop {
-            match self
-                .handler
-                .process_requests_nonblocking(&mut self.inner)
-                .expect("netstack: failed to process requests")
-            {
-                ControlFlow::Continue(()) => {}
-                ControlFlow::Break(()) => break,
-            }
-        }
+        while let ControlFlow::Continue(()) = self
+            .handler
+            .process_requests_nonblocking(&mut self.inner)
+            .expect("netstack: failed to process requests")
+        {}
 
         let fds_to_notify = self.inner.notifier.borrow_mut().get_notified_fds();
         for fd in fds_to_notify {

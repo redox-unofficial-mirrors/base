@@ -64,13 +64,15 @@ impl<'a> SchemeSocket for UdpSocket<'a> {
                         _ => false,
                     };
 
-                    if !is_broadcast && !connected_addr.is_unspecified() {
-                        if source.addr != connected_addr || source.port != data.port {
-                            // Bad packet detected
-                            // Remove it from the buffer immediately so poll() doesn't trigger
-                            let _ = self.recv();
-                            continue; // Loop again to check the next packet
-                        }
+                    if !is_broadcast
+                        && !connected_addr.is_unspecified()
+                        && source.addr != connected_addr
+                        || source.port != data.port
+                    {
+                        // Bad packet detected
+                        // Remove it from the buffer immediately so poll() doesn't trigger
+                        let _ = self.recv();
+                        continue; // Loop again to check the next packet
                     }
                     // Packet is valid
                     return true;
@@ -154,7 +156,7 @@ impl<'a> SchemeSocket for UdpSocket<'a> {
                     let route_table = context.route_table.borrow();
                     let addr = route_table
                         .lookup_src_addr(&remote_endpoint.addr.expect("Checked in is_specified"));
-                    if matches!(addr, None) {
+                    if addr.is_none() {
                         error!("Opening a UDP connection with a probably invalid source IP as no route have been found for destination: {}", remote_endpoint);
                     }
                     addr
@@ -363,11 +365,11 @@ impl<'a> SchemeSocket for UdpSocket<'a> {
             };
             how[..usize_length].copy_from_slice(&address_formatted.len().to_le_bytes());
             let payload_len_index = address_formatted.len() + usize_length;
-            how[usize_length..payload_len_index].copy_from_slice(&address_formatted.as_bytes());
+            how[usize_length..payload_len_index].copy_from_slice(address_formatted.as_bytes());
 
             //Payload Handling
             how[payload_len_index..payload_len_index + usize_length]
-                .copy_from_slice(&(length as usize).to_le_bytes());
+                .copy_from_slice(&length.to_le_bytes());
             how[payload_len_index + usize_length..payload_len_index + usize_length + length]
                 .copy_from_slice(&payload_tmp[..length]);
             Ok(payload_len_index + usize_length + length)

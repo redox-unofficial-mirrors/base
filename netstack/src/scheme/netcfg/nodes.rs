@@ -199,7 +199,7 @@ impl CfgNode for StaticDirNode {
     }
 
     fn open(&self, file: &str) -> Option<CfgNodeRef> {
-        self.child_nodes.get(file).map(|node| Rc::clone(node))
+        self.child_nodes.get(file).map(Rc::clone)
     }
 }
 

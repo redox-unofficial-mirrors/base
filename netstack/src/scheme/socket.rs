@@ -5,7 +5,7 @@ use std::io::{Read, Write};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
-use std::{str, usize};
+use std::str;
 
 use libredox::flag::CLOCK_MONOTONIC;
 use libredox::protocol::SocketCall;
@@ -257,8 +257,11 @@ where
         Err(SyscallError::new(syscall::ENOPROTOOPT))
     }
 
+    #[expect(
+        unused_variables,
+        reason = "Only UDP needs to verify the path before duplicating in case of accept on a null socket"
+    )]
     fn validate_dup(path: &str) -> SyscallResult<()> {
-        // Only UDP needs to verify the path before duplicating in case of accept on a null socket
         Ok(())
     }
 }
@@ -428,7 +431,7 @@ where
                 Ok(count)
             }
             Setting::HopLimit => {
-                if let Some(hop_limit) = buf.get(0) {
+                if let Some(hop_limit) = buf.first() {
                     let mut socket_set = self.socket_set.borrow_mut();
                     let socket = socket_set.get_mut::<SocketT>(file.socket_handle);
                     socket.set_hop_limit(*hop_limit);
@@ -595,8 +598,8 @@ where
                 write_notified: false,
                 write_timeout: None,
                 read_timeout: None,
-                read_enabled: read_enabled,
-                write_enabled: write_enabled,
+                read_enabled,
+                write_enabled,
                 data,
             });
 
@@ -657,8 +660,8 @@ where
         );*/
 
         match handle {
-            Handle::SchemeRoot => return,
-            Handle::Null(_) => return,
+            Handle::SchemeRoot => (),
+            Handle::Null(_) => (),
             Handle::File(scheme_file) => {
                 let socket_handle = scheme_file.socket_handle();
                 let mut socket_set = self.socket_set.borrow_mut();
@@ -761,7 +764,7 @@ where
     }
 
     fn dup(&mut self, fd: usize, buf: &[u8], _ctx: &CallerCtx) -> SyscallResult<OpenResult> {
-        let path = str::from_utf8(buf).or_else(|_| Err(SyscallError::new(syscall::EINVAL)))?;
+        let path = str::from_utf8(buf).map_err(|_| SyscallError::new(syscall::EINVAL))?;
 
         let new_file = {
             let handle = self.handles.get_mut(fd)?;
@@ -778,7 +781,7 @@ where
                     );
 
                     let path =
-                        str::from_utf8(buf).or_else(|_| Err(SyscallError::new(syscall::EINVAL)))?;
+                        str::from_utf8(buf).map_err(|_| SyscallError::new(syscall::EINVAL))?;
 
                     SocketT::validate_dup(path)?;
 

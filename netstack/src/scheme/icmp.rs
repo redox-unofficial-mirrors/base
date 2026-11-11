@@ -174,7 +174,7 @@ impl<'a> SchemeSocket for IcmpSocket<'a> {
         buf: &[u8],
     ) -> SyscallResult<usize> {
         if !file.write_enabled {
-            return Err(SyscallError::new(syscall::EPIPE));
+            Err(SyscallError::new(syscall::EPIPE))
         } else if self.can_send() {
             match file.data.socket_type {
                 IcmpSocketType::Echo => {
@@ -274,7 +274,7 @@ impl<'a> SchemeSocket for IcmpSocket<'a> {
         _how: &mut [u8],
         _flags: usize,
     ) -> SyscallResult<usize> {
-        return Err(SyscallError::new(syscall::EOPNOTSUPP));
+        Err(SyscallError::new(syscall::EOPNOTSUPP))
     }
 
     fn handle_get_peer_name(

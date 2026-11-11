@@ -58,14 +58,6 @@ impl RouteTable {
         Some(self.lookup_rule(dst)?.src)
     }
 
-    pub fn lookup_gateway(&self, dst: &IpAddress) -> Option<IpAddress> {
-        self.lookup_rule(dst)?.via
-    }
-
-    pub fn lookup_device(&self, dst: &IpAddress) -> Option<Rc<str>> {
-        Some(self.lookup_rule(dst)?.dev.clone())
-    }
-
     pub fn insert_rule(&mut self, new_rule: Rule) {
         let i = match self
             .rules

@@ -21,9 +21,7 @@ impl<'a> SchemeSocket for RawSocket<'a> {
 
     const BASE_PATH: &'static str = "/scheme/ip/";
 
-    fn new_scheme_data() -> Self::SchemeDataT {
-        ()
-    }
+    fn new_scheme_data() -> Self::SchemeDataT {}
 
     fn can_send(&self) -> bool {
         self.can_send()
@@ -69,8 +67,7 @@ impl<'a> SchemeSocket for RawSocket<'a> {
         if uid != 0 {
             return Err(SyscallError::new(syscall::EACCES));
         }
-        let proto =
-            u8::from_str_radix(path, 16).or_else(|_| Err(SyscallError::new(syscall::ENOENT)))?;
+        let proto = u8::from_str_radix(path, 16).map_err(|_| SyscallError::new(syscall::ENOENT))?;
 
         let rx_buffer = RawSocketBuffer::new(
             vec![RawPacketMetadata::EMPTY; Smolnetd::SOCKET_BUFFER_SIZE],
@@ -101,7 +98,7 @@ impl<'a> SchemeSocket for RawSocket<'a> {
         buf: &[u8],
     ) -> SyscallResult<usize> {
         if !file.write_enabled {
-            return Err(SyscallError::new(syscall::EPIPE));
+            Err(SyscallError::new(syscall::EPIPE))
         } else if self.can_send() {
             self.send_slice(buf).expect("Can't send slice");
             Ok(buf.len())
@@ -151,7 +148,7 @@ impl<'a> SchemeSocket for RawSocket<'a> {
         _how: &mut [u8],
         _flags: usize,
     ) -> SyscallResult<usize> {
-        return Err(SyscallError::new(syscall::EOPNOTSUPP));
+        Err(SyscallError::new(syscall::EOPNOTSUPP))
     }
 
     fn handle_get_peer_name(
