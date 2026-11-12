@@ -269,17 +269,17 @@ impl<'sock, S: Socket> SchemeSync for UdsScheme<'sock, S> {
         ctx: &CallerCtx,
     ) -> Result<usize> {
         let Some(verb) =
-            SocketCall::try_from_raw(*metadata.get(0).ok_or(Error::new(EINVAL))? as usize)
+            SocketCall::try_from_raw(*metadata.first().ok_or(Error::new(EINVAL))? as usize)
         else {
             eprintln!("call_inner: Invalid verb in metadata: {:?}", metadata);
             return Err(Error::new(EINVAL));
         };
         let socket = self.get_socket(id)?;
         match verb {
-            SocketCall::Bind => S::handle_bind(self, id, &payload),
+            SocketCall::Bind => S::handle_bind(self, id, payload),
             SocketCall::SetSockOpt => socket
                 .borrow_mut()
-                .handle_setsockopt(*metadata.get(1).ok_or(Error::new(EINVAL))? as i32, &payload),
+                .handle_setsockopt(*metadata.get(1).ok_or(Error::new(EINVAL))? as i32, payload),
             SocketCall::GetSockOpt => S::handle_getsockopt(
                 self,
                 socket,
@@ -326,7 +326,7 @@ impl<'sock, S: Socket> SchemeSync for UdsScheme<'sock, S> {
         }
 
         let Some(verb) =
-            SocketCall::try_from_raw(*metadata.get(0).ok_or(Error::new(EINVAL))? as usize)
+            SocketCall::try_from_raw(*metadata.first().ok_or(Error::new(EINVAL))? as usize)
         else {
             eprintln!("call_inner: Invalid verb in metadata: {:?}", metadata);
             return Err(Error::new(EINVAL));
@@ -379,7 +379,7 @@ impl<'sock, S: Socket> SchemeSync for UdsScheme<'sock, S> {
 
     fn fpath(&mut self, id: usize, buf: &mut [u8], _ctx: &CallerCtx) -> Result<usize> {
         match self.handles.get(&id).ok_or(Error::new(EBADF))? {
-            Handle::SchemeRoot => Ok(self.fpath_inner(&String::new(), buf)?),
+            Handle::SchemeRoot => Ok(self.fpath_inner("", buf)?),
             Handle::Socket(socket_rc) | Handle::Entrypoint(socket_rc) => {
                 let socket = socket_rc.borrow();
                 let path = socket.path().unwrap_or("");

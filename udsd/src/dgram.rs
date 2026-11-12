@@ -58,17 +58,12 @@ impl Socket {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum State {
+    #[default]
     Unbound,
     Bound,
     Closed,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Self::Unbound
-    }
 }
 
 impl DataPacket {
@@ -177,7 +172,7 @@ impl Socket {
             .unwrap_or_default();
 
         if space_left == 0 {
-            return if (socket.flags as usize) & O_NONBLOCK == O_NONBLOCK {
+            return if socket.flags & O_NONBLOCK == O_NONBLOCK {
                 Err(Error::new(EAGAIN))
             } else {
                 Err(Error::new(EWOULDBLOCK))
@@ -215,11 +210,13 @@ impl super::scheme::Socket for Socket {
         _ctx: &CallerCtx,
     ) -> usize {
         let new_id = scheme.next_id;
-        let mut new = Socket::default();
-        new.flags = flags;
-        new.primary_id = new_id;
-        // FIXME: Use wmem_default when it's available.
-        new.snd_buf_size = usize::MAX;
+        let new = Socket {
+            flags,
+            primary_id: new_id,
+            // FIXME: Use wmem_default when it's available.
+            snd_buf_size: usize::MAX,
+            ..Default::default()
+        };
 
         scheme.insert_socket(new_id, Rc::new(RefCell::new(new)));
         scheme.next_id += 1;
@@ -327,7 +324,7 @@ impl super::scheme::Socket for Socket {
                         "handle_getsockopt(id: {}): SO_SNDBUF value overflows the payload buffer.",
                         socket.primary_id,
                     );
-                    return i32::MAX;
+                    i32::MAX
                 });
                 let sndbuf = sndbuf.to_le_bytes();
                 payload[..sndbuf.len()].copy_from_slice(&sndbuf);
@@ -388,7 +385,7 @@ impl super::scheme::Socket for Socket {
                 message,
                 msg_stream,
             )?)
-        } else if (socket.flags as usize) & O_NONBLOCK == O_NONBLOCK {
+        } else if socket.flags & O_NONBLOCK == O_NONBLOCK {
             Err(Error::new(EAGAIN))
         } else {
             Err(Error::new(EWOULDBLOCK))
@@ -446,8 +443,10 @@ impl super::scheme::Socket for Socket {
         _ctx: &CallerCtx,
     ) -> Result<OpenResult> {
         let new_id = scheme.next_id;
-        let mut new = Socket::default();
-        new.primary_id = new_id;
+        let mut new = Socket {
+            primary_id: new_id,
+            ..Default::default()
+        };
 
         let socket_rc = scheme.get_socket(id)?;
         if socket_rc.borrow().state == State::Closed {
@@ -533,7 +532,7 @@ impl super::scheme::Socket for Socket {
         let mut new_fds = Vec::new();
         new_fds.resize(sendfd_request.num_fds(), usize::MAX);
         if let Err(e) =
-            sendfd_request.obtain_fd(&scheme.socket, FobtainFdFlags::UPPER_TBL, &mut new_fds)
+            sendfd_request.obtain_fd(scheme.socket, FobtainFdFlags::UPPER_TBL, &mut new_fds)
         {
             eprintln!("sendfd_inner: obtain_fd failed with error: {:?}", e);
             return Err(e);
@@ -562,7 +561,7 @@ impl super::scheme::Socket for Socket {
         let mut socket = socket_rc.borrow_mut();
 
         if socket.fds.len() < recvfd_request.num_fds() {
-            return if (socket.flags as usize) & O_NONBLOCK == O_NONBLOCK {
+            return if socket.flags & O_NONBLOCK == O_NONBLOCK {
                 Ok(OpenResult::WouldBlock)
             } else {
                 Err(Error::new(EWOULDBLOCK))
@@ -570,7 +569,7 @@ impl super::scheme::Socket for Socket {
         }
 
         let fds: Vec<usize> = socket.fds.drain(..recvfd_request.num_fds()).collect();
-        if let Err(e) = recvfd_request.move_fd(&scheme.socket, FmoveFdFlags::empty(), &fds) {
+        if let Err(e) = recvfd_request.move_fd(scheme.socket, FmoveFdFlags::empty(), &fds) {
             eprintln!("recvfd_inner: move_fd failed with error: {:?}", e);
             return Err(Error::new(EPROTO));
         }

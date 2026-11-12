@@ -19,6 +19,10 @@ mod scheme;
 
 extern "C" fn sigusr_handler(_sig: usize) {}
 
+#[expect(
+    dead_code,
+    reason = "temporarily unused until crackling fixed when using ring"
+)]
 fn uring_thread(inner_mutex: Arc<Mutex<AudioSchemeInner>>, pid: usize, shm_fd: Fd) -> Result<()> {
     let mut ring = redox_rings::user::Producer::<AudioChunk>::from_fd(shm_fd, false, None)?;
     loop {
@@ -55,7 +59,7 @@ fn scheme_thread(inner_mutex: Arc<Mutex<AudioSchemeInner>>, pid: usize, hw_file:
             core::slice::from_raw_parts(buffer.as_ptr() as *const u8, size_of_val(&buffer))
         };
 
-        hw_file.write(&buffer_u8)?;
+        hw_file.write(buffer_u8)?;
     }
 }
 
@@ -80,7 +84,7 @@ fn daemon(daemon: SchemeDaemon) -> anyhow::Result<()> {
 
     let mut scheme = AudioScheme::new();
 
-    let _ = daemon.ready_sync_scheme(&socket, &mut scheme).unwrap();
+    daemon.ready_sync_scheme(&socket, &mut scheme).unwrap();
 
     // Enter a constrained namespace
     let ns = libredox::call::mkns(&[

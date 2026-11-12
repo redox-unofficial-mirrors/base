@@ -87,7 +87,7 @@ struct OpenFileInfo {
 
 impl OpenFileInfo {
     fn o_flag_set(&self, f: usize) -> bool {
-        return (f & self.o_flags) == f;
+        (f & self.o_flags) == f
     }
 }
 
@@ -155,7 +155,7 @@ impl RandScheme {
     fn open_inner(&mut self, path: &str, flags: usize, ctx: &CallerCtx) -> Result<OpenResult> {
         // We are only allowing
         // reads/writes from /scheme/rand/ and /scheme/rand/urandom - the root directory on its own is passed as an empty slice
-        if path != "" && path != "/urandom" {
+        if !path.is_empty() && path != "/urandom" {
             return Err(Error::new(ENOENT));
         }
 
