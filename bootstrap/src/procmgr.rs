@@ -703,7 +703,7 @@ impl<'a> ProcScheme<'a> {
                             return Response::new(Err(e), req);
                         };
                         // Only 0 and 1 are valid values for `arg` in `ioctl(fd, TIOCSCTTY, arg)`
-                        let should_steal = match metadata[1] {
+                        let should_steal = match req.num_fds() {
                             0 => false,
                             1 => true,
                             _ => return Response::new(Err(Error::new(EINVAL)), req),
