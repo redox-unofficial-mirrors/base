@@ -147,8 +147,9 @@ impl Connection {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum State {
+    #[default]
     Unbound,
     Bound,
     Listening,
@@ -156,12 +157,6 @@ pub enum State {
     Accepted,
     Established,
     Closed,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Self::Unbound
-    }
 }
 
 #[derive(Debug)]
@@ -618,7 +613,7 @@ impl super::scheme::Socket for Socket {
                 return Err(Error::new(ENOBUFS));
             }
             payload.fill(0);
-            payload[..value.len()].copy_from_slice(&value);
+            payload[..value.len()].copy_from_slice(value);
             Ok(value.len())
         };
         match option {
@@ -716,7 +711,7 @@ impl super::scheme::Socket for Socket {
             return if connection.is_peer_shutdown {
                 // EOF, no data to read
                 return Self::write_eof(msg_stream);
-            } else if (flags as usize) & O_NONBLOCK == O_NONBLOCK || msg_flags.nonblock() {
+            } else if flags & O_NONBLOCK == O_NONBLOCK || msg_flags.nonblock() {
                 Err(Error::new(EAGAIN))
             } else {
                 Err(Error::new(EWOULDBLOCK))
@@ -877,7 +872,7 @@ impl super::scheme::Socket for Socket {
         let mut new_fds = Vec::new();
         new_fds.resize(sendfd_request.num_fds(), usize::MAX);
         if let Err(e) =
-            sendfd_request.obtain_fd(&scheme.socket, FobtainFdFlags::UPPER_TBL, &mut new_fds)
+            sendfd_request.obtain_fd(scheme.socket, FobtainFdFlags::UPPER_TBL, &mut new_fds)
         {
             eprintln!("sendfd_inner: obtain_fd failed with error: {:?}", e);
             return Err(e);
@@ -914,7 +909,7 @@ impl super::scheme::Socket for Socket {
                 if connection.fds.len() < recvfd_request.num_fds() {
                     return if connection.is_peer_shutdown {
                         Ok(OpenResult::OtherSchemeMultiple { num_fds: 0 }) // EOF, no data to read
-                    } else if (socket.flags as usize) & O_NONBLOCK == O_NONBLOCK {
+                    } else if socket.flags & O_NONBLOCK == O_NONBLOCK {
                         Err(Error::new(EAGAIN))
                     } else {
                         Ok(OpenResult::WouldBlock)
@@ -922,8 +917,7 @@ impl super::scheme::Socket for Socket {
                 }
 
                 let fds: Vec<usize> = connection.fds.drain(..recvfd_request.num_fds()).collect();
-                if let Err(e) = recvfd_request.move_fd(&scheme.socket, FmoveFdFlags::empty(), &fds)
-                {
+                if let Err(e) = recvfd_request.move_fd(scheme.socket, FmoveFdFlags::empty(), &fds) {
                     eprintln!("recvfd_inner: move_fd failed with error: {:?}", e);
                     return Err(Error::new(EPROTO));
                 }

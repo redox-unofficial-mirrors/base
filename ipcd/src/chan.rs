@@ -30,16 +30,12 @@ impl Default for Extra {
         Extra::Client(Client::default())
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum Connection {
+    #[default]
     Waiting,
     Open(usize),
     Closed,
-}
-impl Default for Connection {
-    fn default() -> Self {
-        Connection::Waiting
-    }
 }
 
 #[derive(Debug, Default)]
@@ -123,8 +119,10 @@ impl<'sock> ChanScheme<'sock> {
 
     fn open(&mut self, path: &str, flags: usize) -> Result<OpenResult> {
         let new_id = self.next_id;
-        let mut new = Handle::default();
-        new.flags = flags;
+        let mut new = Handle {
+            flags,
+            ..Default::default()
+        };
 
         let create = flags & O_CREAT == O_CREAT;
 
@@ -286,7 +284,7 @@ impl<'sock> SchemeSync for ChanScheme<'sock> {
                 }
 
                 let flags = handle.flags;
-                return self.open(path, flags);
+                self.open(path, flags)
             }
         }
     }

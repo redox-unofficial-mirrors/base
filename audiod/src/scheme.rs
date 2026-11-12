@@ -37,22 +37,19 @@ impl AudioSchemeInner {
         // This mimics natural perception of loudness
         let volume_factor = ((self.volume as f32) / 100.0).powi(3);
         for (_id, handle) in self.handles.iter_mut() {
-            match handle {
-                Handle::Audio { ref mut buffer } => {
-                    let mut i = 0;
-                    while i < mix_buffer.len() {
-                        if let Some(sample) = buffer.pop_front() {
-                            let left = (f32::from(sample.0) * volume_factor) as i16;
-                            let right = (f32::from(sample.1) * volume_factor) as i16;
-                            mix_buffer[i].0 = mix_buffer[i].0.saturating_add(left);
-                            mix_buffer[i].1 = mix_buffer[i].1.saturating_add(right);
-                        } else {
-                            break;
-                        }
-                        i += 1;
+            if let Handle::Audio { ref mut buffer } = handle {
+                let mut i = 0;
+                while i < mix_buffer.len() {
+                    if let Some(sample) = buffer.pop_front() {
+                        let left = (f32::from(sample.0) * volume_factor) as i16;
+                        let right = (f32::from(sample.1) * volume_factor) as i16;
+                        mix_buffer[i].0 = mix_buffer[i].0.saturating_add(left);
+                        mix_buffer[i].1 = mix_buffer[i].1.saturating_add(right);
+                    } else {
+                        break;
                     }
+                    i += 1;
                 }
-                _ => (),
             }
         }
 
@@ -176,7 +173,7 @@ impl SchemeSync for AudioScheme {
                         .trim()
                         .parse::<i32>()
                         .map_err(|_| Error::new(EINVAL))?;
-                    if value >= 0 && value <= 100 {
+                    if (0..=100).contains(&value) {
                         inner.volume = value;
                         Ok(buf.len())
                     } else {
