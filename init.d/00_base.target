@@ -1,6 +1,7 @@
 [unit]
 description = "Basic services"
 requires_weak = [
+    "00_tmp",
     "00_ptyd.service",
     "00_pcid-spawner.service",
 ]
