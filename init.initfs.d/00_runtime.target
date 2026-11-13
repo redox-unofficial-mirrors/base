@@ -10,5 +10,4 @@ requires_weak = [
     "00_udsd.service",
     "00_zerod.service",
     "ramfs@logging.service",
-    "ramfs@tmp.service",
 ]
